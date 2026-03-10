@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tailwind Deep Text Node Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #e5e7eb;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        textarea {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .editor-selected {
+            outline: 2px dashed #3b82f6 !important;
+            outline-offset: 2px;
+        }
+
+        .input-dark {
+            /* @apply w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300 focus:border-blue-500 focus:outline-none transition-colors; */
+            background-color: #1e1e1e;
+            color: #e5e7eb;
+            border: 1px solid #3b82f6;
+            border-radius: .5em;
+            padding: .5em 1em;
+            font-size: 12px;
+            transition: all 0.2s ease-in-out;
+            width: 100%;
+        }
+
+        /* Label Tag Style */
+        .node-tag {
+            @apply text-[9px] font-bold text-gray-400 uppercase bg-gray-800 px-1 rounded border border-gray-600 mr-1;
+        }
+
+        .node-type-text {
+            @apply text-blue-300 border-blue-800 bg-blue-900/30;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden" x-data="pageEditor()">
+
+    <header class="h-14 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="material-icons text-blue-500">wysiwyg</span>
+            <h1 class="font-bold text-lg tracking-wide">Tailwind<span class="text-blue-500">NodeEditor</span></h1>
+        </div>
+        <div class="text-xs text-gray-400 hidden md:block">
+            <span x-show="selectedTag" x-text="'Selected: <' + selectedTag + '>'"></span>
+        </div>
+        <button @click="copyToClipboard()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center transition">
+            <span class="material-icons text-sm mr-1">code</span> HTML
+        </button>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+
+        <div class="w-1/4 bg-gray-900 border-r border-gray-700 flex flex-col">
+            <div
+                class="bg-gray-800 px-3 py-2 text-xs font-semibold uppercase text-gray-400 border-b border-gray-700 flex justify-between">
+                <span>Source Code</span>
+                <span class="material-icons text-sm cursor-pointer hover:text-white"
+                    @click="resetTemplate()">refresh</span>
+            </div>
+            <textarea x-model="htmlContent" @input.debounce.500ms="updatePreviewFromSource()"
+                class="flex-1 w-full bg-[#1e1e1e] text-gray-300 p-4 text-sm focus:outline-none resize-none"
+                spellcheck="false"></textarea>
+        </div>
+
+        <div class="flex-1 bg-gray-100 relative overflow-hidden flex flex-col">
+            <div
+                class="bg-gray-200 px-3 py-1 text-xs text-gray-500 border-b border-gray-300 flex justify-between items-center">
+                <span>Preview (Click any element)</span>
+                <div class="flex space-x-1">
+                    <div class="w-2 h-2 rounded-full bg-red-400"></div>
+                    <div class="w-2 h-2 rounded-full bg-yellow-400"></div>
+                    <div class="w-2 h-2 rounded-full bg-green-400"></div>
+                </div>
+            </div>
+            <div class="flex-1 overflow-auto p-8" @click.stop="handleCanvasClick($event)">
+                <div x-ref="previewContainer" class="min-h-full transition-all duration-300">
+                </div>
+            </div>
+        </div>
+
+        <div class="w-1/4 bg-gray-800 border-l border-gray-700 flex flex-col overflow-y-auto scrollbar-hide">
+
+            <div x-show="!selectedEl" class="p-8 text-center text-gray-500 mt-10">
+                <span class="material-icons text-5xl mb-3 opacity-30">mouse</span>
+                <p class="text-sm">Klik elemen untuk mengedit Text Node (termasuk teks tanpa tag) & Style.</p>
+            </div>
+
+            <div x-show="selectedEl" class="divide-y divide-gray-700">
+
+                <div class="p-4 bg-gray-850" x-data="{ open: true }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-bold uppercase text-blue-400 mb-3">
+                        Content (Nodes) <span class="material-icons text-sm"
+                            x-text="open ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+
+                    <div x-show="open" class="space-y-4">
+
+                        <template x-if="editableNodes.length > 0">
+                            <div class="space-y-3">
+                                <template x-for="(nodeItem, index) in editableNodes" :key="index">
+                                    <div class="bg-gray-900/50 p-2 rounded border border-gray-700">
+                                        <div class="flex items-center mb-1">
+                                            <span class="node-tag" x-text="nodeItem.parentTag"></span>
+                                            <span x-show="nodeItem.isDirectChild"
+                                                class="text-[9px] text-green-400 mr-2">(Direct Text)</span>
+                                            <span x-show="!nodeItem.isDirectChild"
+                                                class="text-[9px] text-gray-500 mr-2">(Nested)</span>
+                                        </div>
+                                        <textarea x-model="nodeItem.currentValue"
+                                            @input="updateNodeValue(index, $event.target.value)"
+                                            class="input-dark resize-y text-xs font-mono" rows="2"></textarea>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <div x-show="selectedTag === 'img'">
+                            <label class="text-xs text-gray-500 block mb-1">Image Source</label>
+                            <input type="text" x-model="currentSrc" @input="updateAttr('src', $event.target.value)"
+                                class="input-dark">
+                        </div>
+
+                        <div class="pt-2">
+                            <label class="text-xs text-gray-500 block mb-1">Background URL</label>
+                            <input type="text" x-model="currentBgImg" @input="updateAttr('bg-img', $event.target.value)"
+                                class="input-dark text-xs" placeholder="https://...">
+                            <div class="flex gap-1 mt-2">
+                                <button @click="updateClass('bg', 'cover')"
+                                    class="flex-1 bg-gray-700 text-[9px] py-1 rounded">Cover</button>
+                                <button @click="updateClass('bg', 'center')"
+                                    class="flex-1 bg-gray-700 text-[9px] py-1 rounded">Center</button>
+                                <button @click="updateAttr('bg-img', '')"
+                                    class="flex-1 bg-red-900 text-red-200 text-[9px] py-1 rounded">X</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: false }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-bold uppercase text-gray-400 mb-2">
+                        Style & Colors <span class="material-icons text-sm"
+                            x-text="open ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Background</label>
+                            <div class="grid grid-cols-6 gap-2">
+                                <button @click="updateClass('bg', 'transparent')"
+                                    class="w-5 h-5 rounded border border-gray-500 flex items-center justify-center text-[8px] text-gray-500">X</button>
+                                <template
+                                    x-for="color in ['white', 'black', 'gray-800', 'blue-600', 'red-500', 'green-500', 'yellow-400', 'purple-500']">
+                                    <button @click="updateClass('bg', color)"
+                                        :class="`w-5 h-5 rounded border border-gray-600 bg-${color}`"></button>
+                                </template>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Text Color</label>
+                            <div class="grid grid-cols-6 gap-2">
+                                <template
+                                    x-for="color in ['white', 'black', 'gray-400', 'red-400', 'blue-400', 'green-400', 'yellow-300', 'pink-400']">
+                                    <button @click="updateClass('text', color)"
+                                        :class="`w-5 h-5 rounded-full border border-gray-600 bg-${color.replace('black','black').replace('white','white')}`"></button>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-xs text-gray-500">Pad</span>
+                                <input type="range" min="0" max="12" :value="getNumberValue('p')"
+                                    @input="updateClass('p', $event.target.value)"
+                                    class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500">Mar</span>
+                                <input type="range" min="0" max="12" :value="getNumberValue('m')"
+                                    @input="updateClass('m', $event.target.value)"
+                                    class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                            </div>
+                        </div>
+                        <div class="flex bg-gray-900 rounded p-1">
+                            <button @click="updateClass('rounded', '')"
+                                class="flex-1 text-[10px] hover:bg-gray-700 py-1 rounded">Squ</button>
+                            <button @click="updateClass('rounded', 'md')"
+                                class="flex-1 text-[10px] hover:bg-gray-700 py-1 rounded">Mid</button>
+                            <button @click="updateClass('rounded', 'xl')"
+                                class="flex-1 text-[10px] hover:bg-gray-700 py-1 rounded">Rnd</button>
+                            <button @click="updateClass('rounded', 'full')"
+                                class="flex-1 text-[10px] hover:bg-gray-700 py-1 rounded">Cir</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function pageEditor() {
+            return {
+                htmlContent: '',
+                selectedEl: null,
+                selectedTag: null,
+
+                // Array untuk menyimpan referensi Text Nodes
+                editableNodes: [],
+                currentSrc: '',
+                currentBgImg: '',
+
+                init() {
+                    // Template Kompleks dengan Mixed Text Nodes
+                    this.htmlContent = `
+<div class="max-w-2xl mx-auto mt-10 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+    <div class="flex items-center space-x-4 mb-6">
+        <div class="p-3 bg-blue-100 rounded-full text-blue-600">
+            <span class="material-icons">flight_takeoff</span>
+        </div>
+        <div>
+            <h2 class="text-xl font-bold text-gray-800">Travel Itinerary</h2>
+            <p class="text-sm text-gray-500">Persiapan liburan musim panas</p>
+        </div>
+    </div>
+
+    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-gray-700 mb-6 flex items-center">
+        <span class="font-bold text-gray-900 mr-2">Status:</span> 
+        Konfirmasi Pending 
+        <span class="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded ml-2">Check Email</span>
+    </div>
+
+    <div class="flex justify-end gap-3">
+        <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+            <span class="material-icons text-sm align-middle">close</span> Cancel
+        </button>
+        <button class="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 flex items-center gap-2">
+            Confirm Booking <span class="material-icons text-sm">arrow_forward</span>
+        </button>
+    </div>
+</div>`.trim();
+                    this.renderPreview();
+                },
+
+                resetTemplate() { if (confirm("Reset?")) this.init(); },
+
+                renderPreview() { this.$refs.previewContainer.innerHTML = this.htmlContent; },
+
+                updatePreviewFromSource() {
+                    this.selectedEl = null;
+                    this.renderPreview();
+                },
+
+                // --- CORE: NODE SCANNING LOGIC ---
+                handleCanvasClick(e) {
+                    if (this.selectedEl) this.selectedEl.classList.remove('editor-selected');
+                    if (e.target === this.$refs.previewContainer) { this.selectedEl = null; return; }
+
+                    this.selectedEl = e.target;
+                    this.selectedTag = this.selectedEl.tagName.toLowerCase();
+                    this.selectedEl.classList.add('editor-selected');
+
+                    // 1. Reset & Scan Deep Nodes
+                    this.editableNodes = [];
+                    this.scanNodesRecursive(this.selectedEl, true);
+
+                    // 2. Load Assets
+                    this.currentSrc = (this.selectedTag === 'img') ? this.selectedEl.getAttribute('src') : '';
+                    const bgStr = this.selectedEl.style.backgroundImage;
+                    this.currentBgImg = (bgStr && bgStr.includes('url'))
+                        ? bgStr.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '') : '';
+                },
+
+                // Fungsi Rekursif Canggih untuk childNodes
+                scanNodesRecursive(element, isRoot = false) {
+                    // Iterate childNodes (bukan children) agar Text Node terdeteksi
+                    const nodes = Array.from(element.childNodes);
+
+                    nodes.forEach(node => {
+                        // Tipe 3 = Text Node
+                        if (node.nodeType === 3) {
+                            const val = node.nodeValue.trim();
+                            if (val.length > 0) {
+                                this.editableNodes.push({
+                                    ref: node, // Simpan referensi langsung ke DOM node
+                                    currentValue: val,
+                                    parentTag: element.tagName.toLowerCase(),
+                                    isDirectChild: isRoot // Apakah ini anak langsung dari elemen yg diklik?
+                                });
+                            }
+                        }
+                        // Tipe 1 = Element Node (div, span, button, etc)
+                        else if (node.nodeType === 1) {
+                            // Abaikan tag script/style
+                            if (!['script', 'style'].includes(node.tagName.toLowerCase())) {
+                                this.scanNodesRecursive(node, false);
+                            }
+                        }
+                    });
+                },
+
+                // Update text pada Text Node spesifik
+                updateNodeValue(index, newValue) {
+                    const item = this.editableNodes[index];
+                    if (item && item.ref) {
+                        // Update DOM Node langsung
+                        item.ref.nodeValue = " " + newValue + " "; // Tambah spasi safety agar tidak nempel
+                        this.syncDomToSource();
+                    }
+                },
+
+                updateAttr(type, val) {
+                    if (!this.selectedEl) return;
+                    if (type === 'src') this.selectedEl.setAttribute('src', val);
+                    if (type === 'bg-img') this.selectedEl.style.backgroundImage = val ? `url('${val}')` : '';
+                    this.syncDomToSource();
+                },
+
+                // --- STYLING (Same as before) ---
+                updateClass(type, value) {
+                    if (!this.selectedEl) return;
+                    const list = this.selectedEl.classList;
+                    const patterns = {
+                        bg: /^bg-(?!cover|center)/,
+                        text: /^text-(white|black|gray|red|blue|green|yellow|purple|pink)/,
+                        p: /^p-/, m: /^m-/, rounded: /^rounded-?/
+                    };
+
+                    // Cleanup old class
+                    let pattern = patterns[type] || new RegExp(`^${type}-`);
+                    Array.from(list).forEach(c => { if (c.match(pattern)) list.remove(c); });
+
+                    if (value) {
+                        let cls = (value.startsWith(type) || ['cover', 'center'].includes(value)) ? value : `${type}-${value}`;
+                        if (type === 'bg' && !value.startsWith('bg-')) cls = `bg-${value}`;
+                        list.add(cls);
+                    }
+                    this.syncDomToSource();
+                },
+
+                getNumberValue(type) {
+                    if (!this.selectedEl) return 0;
+                    const match = Array.from(this.selectedEl.classList).find(c => c.match(new RegExp(`^${type}-\\d+$`)));
+                    return match ? parseInt(match.split('-')[1]) : 0;
+                },
+
+                syncDomToSource() {
+                    const clone = this.$refs.previewContainer.cloneNode(true);
+                    const sel = clone.querySelector('.editor-selected');
+                    if (sel) sel.classList.remove('editor-selected');
+                    this.htmlContent = this.formatHTML(clone.innerHTML);
+                },
+
+                formatHTML(html) {
+                    let formatted = '';
+                    let indent = '';
+                    html.split(/>\s*</).forEach(function (element) {
+                        if (element.match(/^\/\w/)) indent = indent.substring(4);
+                        formatted += indent + '<' + element + '>\r\n';
+                        if (element.match(/^<?\w[^>]*[^\/]$/) && !['img', 'input', 'br', 'hr'].some(t => element.startsWith(t))) indent += '    ';
+                    });
+                    return formatted.substring(1, formatted.length - 3);
+                },
+
+                copyToClipboard() {
+                    navigator.clipboard.writeText(this.htmlContent);
+                    alert("HTML Copied!");
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

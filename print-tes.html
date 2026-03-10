@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printer Test Page</title>
+    <script src="assets/js/tailwindcss.js"></script>
+    <script src="assets/js/theme-config.js"></script>
+    <script defer src="assets/js/alpine.min.js"></script>
+
+    <style>
+        /* Kustomisasi khusus untuk media cetak agar background warna tercetak */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            @page {
+                margin: 1cm;
+                size: A4;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-8 font-sans" x-data="{ 
+          printPage() { window.print(); },
+          date: new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      }">
+
+    <button @click="printPage()"
+        class="fixed bottom-8 right-8 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center gap-2 transition transform hover:scale-105 print:hidden z-50">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Cetak Halaman
+    </button>
+
+    <div
+        class="w-[210mm] min-h-[297mm] bg-white shadow-2xl p-10 mx-auto print:shadow-none print:w-full print:p-0 print:m-0">
+
+        <div class="flex justify-between items-end border-b-4 border-black pb-4 mb-8">
+            <div>
+                <h1 class="text-4xl font-black uppercase tracking-widest text-gray-900">Printer Test</h1>
+                <p class="text-gray-500 mt-1" x-text="'Tanggal Tes: ' + date"></p>
+            </div>
+            <div class="text-right">
+                <div class="text-xs text-gray-400">MINI ALPINE APP GEN</div>
+                <div class="font-mono text-sm">A4 Standard / 300 DPI Target</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-0 mb-8 h-24 border border-gray-200">
+            <div class="bg-cyan-500 flex items-center justify-center text-white font-bold">C</div>
+            <div class="bg-fuchsia-500 flex items-center justify-center text-white font-bold">M</div>
+            <div class="bg-yellow-400 flex items-center justify-center text-black font-bold">Y</div>
+            <div class="bg-black flex items-center justify-center text-white font-bold">K</div>
+        </div>
+        <div class="grid grid-cols-3 gap-0 mb-8 h-16 border border-gray-200">
+            <div class="bg-red-600 flex items-center justify-center text-white font-bold">R</div>
+            <div class="bg-green-600 flex items-center justify-center text-white font-bold">G</div>
+            <div class="bg-primary-600 flex items-center justify-center text-white font-bold">B</div>
+        </div>
+
+        <div class="space-y-2 mb-8">
+            <div class="h-8 w-full bg-gradient-to-r from-white to-black border border-gray-300"></div>
+            <div class="h-8 w-full bg-gradient-to-r from-white via-gray-500 to-black border border-gray-300"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-8 mb-8">
+            <div>
+                <h3 class="font-bold border-b mb-2">Ketajaman Teks</h3>
+                <p class="text-xs">6pt: The quick brown fox jumps over the lazy dog.</p>
+                <p class="text-sm">8pt: The quick brown fox jumps over the lazy dog.</p>
+                <p class="text-base">10pt: The quick brown fox jumps over the lazy dog.</p>
+                <p class="text-lg">12pt: The quick brown fox jumps over the lazy dog.</p>
+                <p class="text-xl font-bold">14pt Bold: The quick brown fox.</p>
+            </div>
+
+            <div
+                class="relative border border-gray-300 h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHBhdGggZD0iTTEwIDB2MjBNMCAxMGgyMCIgc3Ryb2tlPSIjZTRlNGU3IiBzdHJva2Utd2lkdGg9IjEiLz48L3N2Zz4=')]">
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-24 h-24 border-2 border-black rounded-full flex items-center justify-center">
+                        <div class="w-1 h-full bg-black"></div>
+                        <div class="h-1 w-full bg-black absolute"></div>
+                    </div>
+                </div>
+                <p class="absolute bottom-1 right-2 text-xs text-gray-400">Grid Alignment</p>
+            </div>
+        </div>
+
+        <div class="border-t-2 border-gray-300 pt-4 flex justify-between text-xs text-gray-500">
+            <span>Generated by Mini Alpine App Gen</span>
+            <span>Alpine.js + Tailwind CSS</span>
+        </div>
+    </div>
+
+</body>
+
+</html>

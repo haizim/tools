@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Alpine Tailwind Editor v2</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #e5e7eb;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        textarea {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .editor-selected {
+            outline: 2px dashed #3b82f6 !important;
+            outline-offset: 2px;
+        }
+
+        /* Style input form agar lebih compact */
+        .input-dark {
+            /* @apply w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-gray-800 focus:border-blue-500 focus:outline-none; */
+            background-color: #1e1e1e;
+            color: #e5e7eb;
+            border-color: #3b82f6;
+            border-radius: .5em;
+            padding: .5em 1em;
+            font-size: 12px;
+            transition: all 0.2s ease-in-out;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden" x-data="pageEditor()">
+
+    <header class="h-14 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="material-icons text-blue-500">layers</span>
+            <h1 class="font-bold text-lg tracking-wide">Tailwind<span class="text-blue-500">Builder</span> Pro</h1>
+        </div>
+        <div class="text-xs text-gray-400 hidden md:block">
+            <span x-show="selectedTag" x-text="'Editing: <' + selectedTag + '>'"></span>
+            <span x-show="!selectedTag">Select an element to edit</span>
+        </div>
+        <button @click="copyToClipboard()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center transition">
+            <span class="material-icons text-sm mr-1">code</span> Get Code
+        </button>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+
+        <div class="w-1/4 bg-gray-900 border-r border-gray-700 flex flex-col">
+            <div
+                class="bg-gray-800 px-3 py-2 text-xs font-semibold uppercase text-gray-400 border-b border-gray-700 flex justify-between">
+                <span>Source</span>
+                <span class="material-icons text-sm cursor-pointer hover:text-white" @click="resetTemplate()"
+                    title="Reset">refresh</span>
+            </div>
+            <textarea x-model="htmlContent" @input.debounce.500ms="updatePreviewFromSource()"
+                class="flex-1 w-full bg-[#1e1e1e] text-gray-300 p-4 text-sm focus:outline-none resize-none"
+                spellcheck="false"></textarea>
+        </div>
+
+        <div class="flex-1 bg-gray-100 relative overflow-hidden flex flex-col">
+            <div
+                class="bg-gray-200 px-3 py-1 text-xs text-gray-500 border-b border-gray-300 flex justify-between items-center">
+                <span>Preview</span>
+                <div class="flex space-x-1">
+                    <div class="w-2 h-2 rounded-full bg-red-400"></div>
+                    <div class="w-2 h-2 rounded-full bg-yellow-400"></div>
+                    <div class="w-2 h-2 rounded-full bg-green-400"></div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto p-8" @click.stop="handleCanvasClick($event)">
+                <div x-ref="previewContainer" class="min-h-full transition-all duration-300">
+                </div>
+            </div>
+        </div>
+
+        <div class="w-1/4 bg-gray-800 border-l border-gray-700 flex flex-col overflow-y-auto scrollbar-hide">
+            <div class="px-4 py-3 border-b border-gray-700 bg-gray-800 sticky top-0 z-10">
+                <h2 class="font-semibold text-sm">
+                    Properties
+                    <span class="bg-blue-800 text-[11px] px-2 py-1 rounded" x-text="`<${selectedTag ?? ''}>`"></span>
+                </h2>
+            </div>
+
+            <div x-show="!selectedEl" class="p-8 text-center text-gray-500 mt-10">
+                <span class="material-icons text-5xl mb-3 opacity-30">ads_click</span>
+                <p class="text-sm">Klik elemen di preview untuk mengedit text, gambar, atau style.</p>
+            </div>
+
+            <div x-show="selectedEl" class="divide-y divide-gray-700">
+                <div class="p-4 bg-gray-850" x-data="{ open: true }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-bold uppercase text-blue-400 mb-2">
+                        Content & Assets <span class="material-icons text-sm"
+                            x-text="open ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+
+                        <div x-show="canEditText">
+                            <label class="text-xs text-gray-500 block mb-1">Text Content</label>
+                            <textarea x-model="currentText" @input="updateContent('text', $event.target.value)" rows="3"
+                                class="input-dark resize-y"></textarea>
+                        </div>
+
+                        <div x-show="selectedTag === 'img'">
+                            <label class="text-xs text-gray-500 block mb-1">Image URL (Src)</label>
+                            <input type="text" x-model="currentSrc" @input="updateContent('src', $event.target.value)"
+                                class="input-dark" placeholder="https://...">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Background Image URL</label>
+                            <input type="text" x-model="currentBgImg"
+                                @input="updateContent('bg-img', $event.target.value)" class="input-dark"
+                                placeholder="https://...">
+                            <div class="flex gap-1 mt-2">
+                                <button @click="updateClass('bg', 'cover')"
+                                    class="text-[10px] bg-gray-700 px-2 py-1 rounded hover:bg-gray-600">Cover</button>
+                                <button @click="updateClass('bg', 'center')"
+                                    class="text-[10px] bg-gray-700 px-2 py-1 rounded hover:bg-gray-600">Center</button>
+                                <button @click="updateContent('bg-img', '')"
+                                    class="text-[10px] bg-red-900 text-red-200 px-2 py-1 rounded hover:bg-red-800">Remove</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: true }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-bold uppercase text-gray-400 mb-2">
+                        Typography <span class="material-icons text-sm"
+                            x-text="open ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div class="flex space-x-2">
+                            <div class="w-1/2">
+                                <label class="text-xs text-gray-500 block mb-1">Size</label>
+                                <select @change="updateClass('text', $event.target.value)"
+                                    :value="getClassValue('text')" class="input-dark">
+                                    <option value="">Default</option>
+                                    <option value="xs">XS</option>
+                                    <option value="sm">SM</option>
+                                    <option value="base">Base</option>
+                                    <option value="lg">LG</option>
+                                    <option value="xl">XL</option>
+                                    <option value="2xl">2XL</option>
+                                    <option value="4xl">4XL</option>
+                                </select>
+                            </div>
+                            <div class="w-1/2">
+                                <label class="text-xs text-gray-500 block mb-1">Weight</label>
+                                <select @change="updateClass('font', $event.target.value)"
+                                    :value="getClassValue('font')" class="input-dark">
+                                    <option value="">Normal</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="light">Light</option>
+                                    <option value="semibold">Semi</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Color</label>
+                            <div class="grid grid-cols-6 gap-2">
+                                <template
+                                    x-for="color in ['white', 'black', 'gray-500', 'red-500', 'blue-500', 'green-500', 'yellow-500', 'purple-500', 'indigo-500', 'pink-500']">
+                                    <button @click="updateClass('text', color)"
+                                        :class="`w-5 h-5 rounded-full border border-gray-600 bg-${color.replace('black', 'black').replace('white', 'white')}`"></button>
+                                </template>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Align</label>
+                            <div class="flex bg-gray-900 rounded p-1">
+                                <button @click="updateClass('text', 'left')"
+                                    class="flex-1 hover:bg-gray-700 rounded py-1"><span
+                                        class="material-icons text-xs">format_align_left</span></button>
+                                <button @click="updateClass('text', 'center')"
+                                    class="flex-1 hover:bg-gray-700 rounded py-1"><span
+                                        class="material-icons text-xs">format_align_center</span></button>
+                                <button @click="updateClass('text', 'right')"
+                                    class="flex-1 hover:bg-gray-700 rounded py-1"><span
+                                        class="material-icons text-xs">format_align_right</span></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: false }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-bold uppercase text-gray-400 mb-2">
+                        Spacing <span class="material-icons text-sm"
+                            x-text="open ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                <span>Padding</span>
+                                <span x-text="'p-' + getNumberValue('p')"></span>
+                            </div>
+                            <input type="range" min="0" max="16" step="1" :value="getNumberValue('p')"
+                                @input="updateClass('p', $event.target.value)"
+                                class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                <span>Margin</span>
+                                <span x-text="'m-' + getNumberValue('m')"></span>
+                            </div>
+                            <input type="range" min="0" max="16" step="1" :value="getNumberValue('m')"
+                                @input="updateClass('m', $event.target.value)"
+                                class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: false }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-bold uppercase text-gray-400 mb-2">
+                        Box Style <span class="material-icons text-sm"
+                            x-text="open ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Background Color</label>
+                            <div class="grid grid-cols-6 gap-2">
+                                <button @click="updateClass('bg', 'transparent')"
+                                    class="w-5 h-5 rounded border border-gray-500 flex items-center justify-center text-[8px] text-gray-500">X</button>
+                                <template
+                                    x-for="color in ['white', 'black', 'gray-100', 'gray-800', 'blue-600', 'red-500', 'green-500', 'yellow-400']">
+                                    <button @click="updateClass('bg', color)"
+                                        :class="`w-5 h-5 rounded border border-gray-600 bg-${color}`"></button>
+                                </template>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1">Radius</label>
+                            <div class="grid grid-cols-4 gap-1">
+                                <button @click="updateClass('rounded', '')"
+                                    class="bg-gray-700 text-[10px] py-1 rounded">None</button>
+                                <button @click="updateClass('rounded', 'md')"
+                                    class="bg-gray-700 text-[10px] py-1 rounded">M</button>
+                                <button @click="updateClass('rounded', 'xl')"
+                                    class="bg-gray-700 text-[10px] py-1 rounded">XL</button>
+                                <button @click="updateClass('rounded', 'full')"
+                                    class="bg-gray-700 text-[10px] py-1 rounded">Full</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function pageEditor() {
+            return {
+                htmlContent: '',
+                selectedEl: null,
+                selectedTag: null,
+
+                // State untuk Input Fields
+                currentText: '',
+                currentSrc: '',
+                currentBgImg: '',
+                canEditText: false,
+
+                init() {
+                    // Template Default: Hero Section sederhana
+                    this.htmlContent = `
+<div class="relative w-full h-96 flex items-center justify-center bg-gray-900 bg-cover bg-center overflow-hidden" style="background-image: url('https://images.unsplash.com/photo-1519681393798-3828fb4090bb?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');">
+    <div class="absolute inset-0 bg-black opacity-50"></div>
+    <div class="relative z-10 text-center px-4">
+        <h1 class="text-5xl font-bold text-white mb-4 shadow-sm">Explore Nature</h1>
+        <p class="text-xl text-gray-200 mb-8 max-w-lg mx-auto">
+            Temukan keindahan alam yang belum pernah Anda lihat sebelumnya. Mulai petualangan sekarang.
+        </p>
+        <div class="flex justify-center gap-4">
+            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition shadow-lg">
+                Get Started
+            </button>
+            <button class="bg-transparent border-2 border-white text-white font-bold py-2 px-6 rounded-full hover:bg-white hover:text-black transition">
+                Learn More
+            </button>
+        </div>
+    </div>
+</div>
+<div class="p-8 max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-8">
+    <img src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60" class="w-48 h-48 object-cover rounded-xl shadow-lg transform rotate-3 hover:rotate-0 transition">
+    <div class="text-left">
+        <h3 class="text-2xl font-bold text-gray-800 mb-2">Our Mission</h3>
+        <p class="text-gray-600">Kami berdedikasi untuk menyediakan pengalaman terbaik bagi para petualang.</p>
+    </div>
+</div>`.trim();
+                    this.renderPreview();
+                },
+
+                resetTemplate() {
+                    if (confirm("Reset template?")) this.init();
+                },
+
+                renderPreview() {
+                    this.$refs.previewContainer.innerHTML = this.htmlContent;
+                },
+
+                updatePreviewFromSource() {
+                    this.selectedEl = null; // Clear selection saat source berubah manual
+                    this.renderPreview();
+                },
+
+                handleCanvasClick(e) {
+                    if (this.selectedEl) this.selectedEl.classList.remove('editor-selected');
+
+                    if (e.target === this.$refs.previewContainer) {
+                        this.selectedEl = null;
+                        this.selectedTag = null;
+                        return;
+                    }
+
+                    this.selectedEl = e.target;
+                    this.selectedTag = this.selectedEl.tagName.toLowerCase();
+                    this.selectedEl.classList.add('editor-selected');
+
+                    // --- LOGIC BARU: POPULATE INPUT FIELDS ---
+
+                    // 1. Text Content
+                    // Kita hanya membolehkan edit text jika elemen tidak punya children (leaf node)
+                    // ATAU jika elemennya spesifik text (h1, p, span, button, a)
+                    const isLeaf = this.selectedEl.children.length === 0;
+                    const allowedTag = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'button', 'a'];
+                    this.canEditText = isLeaf && this.selectedTag !== 'img' && this.selectedTag !== 'input' && this.selectedTag !== 'hr' || allowedTag.includes(this.selectedTag);
+                    console.log(this.selectedTag, isLeaf, this.canEditText);
+                    this.currentText = this.selectedEl.firstChild.textContent;
+
+                    // 2. Image Src
+                    this.currentSrc = (this.selectedTag === 'img') ? this.selectedEl.getAttribute('src') : '';
+
+                    // 3. Background Image
+                    // Mengambil nilai dari style inline. Menghapus 'url("' dan '")'
+                    const bgStyle = this.selectedEl.style.backgroundImage;
+                    if (bgStyle && bgStyle.includes('url')) {
+                        this.currentBgImg = bgStyle.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
+                    } else {
+                        this.currentBgImg = '';
+                    }
+                },
+
+                // --- FUNGSI UPDATE BARU ---
+                updateContent(type, val) {
+                    if (!this.selectedEl) return;
+
+                    if (type === 'text') {
+                        this.selectedEl.firstChild.textContent = val;
+                    } else if (type === 'src') {
+                        this.selectedEl.setAttribute('src', val);
+                    } else if (type === 'bg-img') {
+                        if (val.trim() === '') {
+                            this.selectedEl.style.backgroundImage = '';
+                        } else {
+                            this.selectedEl.style.backgroundImage = `url('${val}')`;
+                        }
+                    }
+
+                    this.syncDomToSource();
+                },
+
+                // Fungsi Update Class Tailwind (Lama)
+                updateClass(type, value) {
+                    if (!this.selectedEl) return;
+
+                    const classList = Array.from(this.selectedEl.classList);
+                    let patterns = [];
+
+                    switch (type) {
+                        case 'text':
+                            if (['left', 'center', 'right'].includes(value)) patterns.push(/^text-(left|center|right)$/);
+                            else if (['xs', 'sm', 'base', 'lg', 'xl', '2xl', '4xl'].includes(value)) patterns.push(/^text-(xs|sm|base|lg|xl|2xl|4xl)$/);
+                            else patterns.push(/^text-(white|black|gray|red|blue|green|yellow|purple|indigo|pink)-?\d{0,3}$/);
+                            break;
+                        case 'bg': patterns.push(/^bg-(?!cover|center)/); break; // Kecualikan bg-cover/center agar tidak hilang saat ganti warna
+                        case 'p': patterns.push(/^p-/); break;
+                        case 'm': patterns.push(/^m-/); break;
+                        case 'rounded': patterns.push(/^rounded-?/); break;
+                        case 'font': patterns.push(/^font-/); break;
+                    }
+
+                    patterns.forEach(p => {
+                        classList.forEach(c => { if (c.match(p)) this.selectedEl.classList.remove(c); });
+                    });
+
+                    if (value) {
+                        let newClass = value.startsWith(type) || ['left', 'center', 'right', 'cover', 'contain'].includes(value) ? value : `${type}-${value}`;
+
+                        // Fix formatting logic
+                        if (type === 'text' && !value.startsWith('text-')) newClass = `text-${value}`;
+                        if (type === 'bg' && !value.startsWith('bg-')) newClass = `bg-${value}`;
+
+                        this.selectedEl.classList.add(newClass);
+                    }
+                    this.syncDomToSource();
+                },
+
+                getClassValue(type) {
+                    if (!this.selectedEl) return '';
+                    const classList = Array.from(this.selectedEl.classList);
+                    const match = classList.find(c => c.startsWith(type + '-'));
+                    return match ? match.replace(type + '-', '') : '';
+                },
+
+                getNumberValue(type) {
+                    if (!this.selectedEl) return 0;
+                    const classList = Array.from(this.selectedEl.classList);
+                    const match = classList.find(c => c.match(new RegExp(`^${type}-\\d+$`)));
+                    return match ? parseInt(match.split('-')[1]) : 0;
+                },
+
+                syncDomToSource() {
+                    const clone = this.$refs.previewContainer.cloneNode(true);
+                    // Hapus helper class internal sebelum generate HTML
+                    const selected = clone.querySelector('.editor-selected');
+                    if (selected) selected.classList.remove('editor-selected');
+
+                    this.htmlContent = this.formatHTML(clone.innerHTML);
+                },
+
+                formatHTML(html) {
+                    // Simple formatting preservation
+                    let formatted = '';
+                    let indent = '';
+                    html.split(/>\s*</).forEach(function (element) {
+                        if (element.match(/^\/\w/)) {
+                            indent = indent.substring(4);
+                        }
+                        formatted += indent + '<' + element + '>\r\n';
+                        if (element.match(/^<?\w[^>]*[^\/]$/) && !element.startsWith("input") && !element.startsWith("img") && !element.startsWith("br") && !element.startsWith("hr")) {
+                            indent += '    ';
+                        }
+                    });
+                    return formatted.substring(1, formatted.length - 3);
+                },
+
+                copyToClipboard() {
+                    navigator.clipboard.writeText(this.htmlContent);
+                    alert("HTML berhasil disalin!");
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

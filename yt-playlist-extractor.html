@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Playlist Extractor</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        textarea::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <header class="bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center gap-2">
+            <span class="material-icons text-red-600 text-3xl">smart_display</span>
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">YT URL Extractor Pro</h1>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-4xl mx-auto w-full px-4 py-8" x-data="ytExtractor()">
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span class="material-icons text-slate-500">settings</span> Configuration
+            </h2>
+
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-sm font-medium text-slate-700">YouTube Data API Key</label>
+                    <button x-show="apiKey" x-cloak @click="clearKey"
+                        class="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
+                        <span class="material-icons" style="font-size: 14px;">delete</span> Clear Saved Key
+                    </button>
+                </div>
+
+                <input type="password" x-model="apiKey"
+                    class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                    placeholder="AIza..." :class="{'bg-yellow-50': isSaved}">
+
+                <p x-show="isSaved" x-cloak class="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <span class="material-icons text-xs">check_circle</span> Key saved to browser storage.
+                </p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1">Target URL</label>
+                <div class="flex gap-2">
+                    <input type="text" x-model="inputUrl" @keyup.enter="startExtraction"
+                        class="flex-grow rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                        placeholder="https://www.youtube.com/@mooview777 or Playlist URL">
+
+                    <button @click="startExtraction" :disabled="isLoading || !apiKey || !inputUrl"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <span class="material-icons text-sm" x-show="!isLoading">download</span>
+                        <span class="material-icons text-sm animate-spin" x-show="isLoading" x-cloak>refresh</span>
+                        <span x-text="isLoading ? 'Processing...' : 'Extract'"></span>
+                    </button>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Supports: Playlist links, Channel links, and Handles (@handle).
+                </p>
+            </div>
+
+            <div x-show="status.message" x-cloak
+                :class="status.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'"
+                class="p-3 rounded-md border text-sm flex items-start gap-2 transition-all">
+                <span class="material-icons text-sm mt-0.5" x-text="status.type === 'error' ? 'error' : 'info'"></span>
+                <span x-text="status.message"></span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6" x-show="resultText" x-cloak x-transition>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold flex items-center gap-2">
+                    <span class="material-icons text-slate-500">list</span>
+                    Results
+                    <span class="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full"
+                        x-text="videoCount + ' videos'"></span>
+                </h2>
+                <button @click="copyToClipboard"
+                    class="text-slate-600 hover:text-blue-600 text-sm font-medium flex items-center gap-1">
+                    <span class="material-icons text-sm">content_copy</span> Copy All
+                </button>
+            </div>
+
+            <textarea readonly x-model="resultText"
+                class="w-full h-64 p-3 bg-slate-50 border border-slate-300 rounded-md font-mono text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y whitespace-pre"></textarea>
+        </div>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 mt-auto">
+        <div class="max-w-4xl mx-auto px-4 py-6 text-center text-sm text-slate-500">
+            Mini Alpine App Gen &copy; 2026
+        </div>
+    </footer>
+
+    <script>
+        function ytExtractor() {
+            return {
+                apiKey: '',
+                inputUrl: '',
+                isLoading: false,
+                isSaved: false,
+                resultText: '',
+                videoCount: 0,
+                status: { message: '', type: '' },
+
+                init() {
+                    // 1. Cek LocalStorage saat aplikasi dimuat
+                    const storedKey = localStorage.getItem('yt_api_key_v1');
+                    if (storedKey) {
+                        this.apiKey = storedKey;
+                        this.isSaved = true;
+                    }
+
+                    // 2. Watcher: Setiap kali apiKey berubah, simpan ke LocalStorage
+                    this.$watch('apiKey', (value) => {
+                        if (value) {
+                            localStorage.setItem('yt_api_key_v1', value);
+                            this.isSaved = true;
+                        } else {
+                            // Jika user menghapus manual input field
+                            this.isSaved = false;
+                        }
+                    });
+                },
+
+                clearKey() {
+                    this.apiKey = '';
+                    localStorage.removeItem('yt_api_key_v1');
+                    this.isSaved = false;
+                    this.showStatus('API Key removed from storage.', 'info');
+                },
+
+                async startExtraction() {
+                    this.resetState();
+                    if (!this.apiKey) return this.showStatus('API Key is required.', 'error');
+
+                    this.isLoading = true;
+
+                    try {
+                        const playlistId = await this.resolveTarget(this.inputUrl);
+                        if (!playlistId) throw new Error("Could not resolve a valid Playlist ID from URL.");
+                        await this.fetchAllVideos(playlistId);
+                    } catch (err) {
+                        this.showStatus(err.message, 'error');
+                        console.error(err);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                resetState() {
+                    this.status = { message: '', type: '' };
+                    this.resultText = '';
+                    this.videoCount = 0;
+                },
+
+                async resolveTarget(url) {
+                    const listMatch = url.match(/[?&]list=([^#\&\?]+)/);
+                    if (listMatch) return listMatch[1];
+
+                    const handleMatch = url.match(/@([a-zA-Z0-9_.-]+)/);
+                    if (handleMatch) {
+                        const handle = "@" + handleMatch[1];
+                        this.showStatus(`Detected handle ${handle}. Resolving ID...`, 'info');
+                        return await this.fetchUploadsId(handle, 'handle');
+                    }
+
+                    const channelMatch = url.match(/\/channel\/(UC[\w-]+)/);
+                    if (channelMatch) {
+                        const channelId = channelMatch[1];
+                        this.showStatus(`Detected Channel ID. Resolving uploads...`, 'info');
+                        return await this.fetchUploadsId(channelId, 'id');
+                    }
+
+                    throw new Error("Invalid URL format. Use a Playlist URL, Channel URL, or Handle (@name).");
+                },
+
+                async fetchUploadsId(identifier, type) {
+                    let apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&key=${this.apiKey}`;
+
+                    if (type === 'handle') {
+                        apiUrl += `&forHandle=${encodeURIComponent(identifier)}`;
+                    } else {
+                        apiUrl += `&id=${identifier}`;
+                    }
+
+                    const response = await fetch(apiUrl);
+                    const data = await response.json();
+
+                    if (data.error) throw new Error(data.error.message);
+                    if (!data.items || data.items.length === 0) throw new Error("Channel/Handle not found.");
+
+                    return data.items[0].contentDetails.relatedPlaylists.uploads;
+                },
+
+                async fetchAllVideos(playlistId) {
+                    let extracted = [];
+                    let nextPageToken = '';
+                    let keepFetching = true;
+
+                    this.showStatus(`Fetching videos from Playlist: ${playlistId}...`, 'info');
+
+                    while (keepFetching) {
+                        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${this.apiKey}&pageToken=${nextPageToken}`;
+
+                        const response = await fetch(url);
+                        const data = await response.json();
+
+                        if (data.error) throw new Error(data.error.message);
+
+                        data.items.forEach(item => {
+                            const videoId = item.snippet.resourceId.videoId;
+                            extracted.push(`https://www.youtube.com/watch?v=${videoId}`);
+                        });
+
+                        if (data.nextPageToken) {
+                            nextPageToken = data.nextPageToken;
+                        } else {
+                            keepFetching = false;
+                        }
+                    }
+
+                    this.videoCount = extracted.length;
+                    this.resultText = extracted.join('\n');
+                    this.showStatus(`Success! Extracted ${this.videoCount} videos.`, 'success');
+                },
+
+                showStatus(msg, type) {
+                    this.status = { message: msg, type: type };
+                },
+
+                copyToClipboard() {
+                    navigator.clipboard.writeText(this.resultText);
+                    this.showStatus('Copied all URLs to clipboard!', 'info');
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

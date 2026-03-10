@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" x-data="todoApp()" :class="{ 'dark': darkMode }" x-init="init()">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpine Todo Pro | Dark Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .progress-transition {
+            transition: width 0.4s ease-in-out;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-slate-950 min-h-screen font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+
+    <div x-cloak class="max-w-3xl mx-auto py-10 px-4">
+
+        <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800 dark:text-white">Task Architect</h1>
+                <p class="text-slate-500 dark:text-slate-400">Organize your workflow into manageable groups.</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button @click="toggleDarkMode()"
+                    class="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-amber-400 transition-all active:scale-95"
+                    title="Toggle Dark Mode">
+                    <span class="material-icons" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+
+                <button @click="addGroup()"
+                    class="flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm active:scale-95">
+                    <span class="material-icons mr-2 text-sm">add</span>
+                    New Group
+                </button>
+            </div>
+        </header>
+
+        <div class="space-y-6">
+            <template x-for="(group, gIndex) in groups" :key="group.id">
+                <section
+                    class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden transition-all">
+
+                    <div
+                        class="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3">
+                        <div class="flex items-center gap-3">
+                            <button @click="group.collapsed = !group.collapsed"
+                                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <span class="material-icons transform transition-transform"
+                                    :class="group.collapsed ? '-rotate-90' : ''">expand_more</span>
+                            </button>
+
+                            <div class="flex-grow">
+                                <input type="text" x-model="group.name"
+                                    class="bg-transparent border-none focus:ring-2 focus:ring-indigo-500 rounded px-2 py-1 text-lg font-semibold w-full dark:text-white"
+                                    placeholder="Group Name" />
+                            </div>
+
+                            <div class="flex items-center gap-1">
+                                <button @click="moveGroup(gIndex, -1)" :disabled="gIndex === 0"
+                                    class="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30">
+                                    <span class="material-icons text-lg">arrow_upward</span>
+                                </button>
+                                <button @click="moveGroup(gIndex, 1)" :disabled="gIndex === groups.length - 1"
+                                    class="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30">
+                                    <span class="material-icons text-lg">arrow_downward</span>
+                                </button>
+                                <button @click="deleteGroup(gIndex)" class="p-1 text-slate-400 hover:text-red-600">
+                                    <span class="material-icons text-lg">delete</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="w-full">
+                            <div
+                                class="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                                <span x-text="calculateProgress(group) + '% completed'"></span>
+                                <span
+                                    x-text="group.todos.filter(t => t.done).length + '/' + group.todos.length + ' tasks'"></span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-indigo-500 progress-transition"
+                                    :style="`width: ${calculateProgress(group)}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div x-show="!group.collapsed" x-transition>
+                        <div class="p-4 space-y-2">
+                            <template x-for="(todo, tIndex) in group.todos" :key="todo.id">
+                                <div
+                                    class="flex items-center gap-3 group/item p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors border border-transparent hover:border-slate-100 dark:hover:border-slate-800">
+                                    <input type="checkbox" x-model="todo.done"
+                                        class="w-5 h-5 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+
+                                    <input type="text" x-model="todo.text"
+                                        :class="todo.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'"
+                                        class="flex-grow bg-transparent border-none focus:ring-0 p-0 text-sm" />
+
+                                    <div
+                                        class="flex items-center opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                        <button @click="moveTodo(gIndex, tIndex, -1)" :disabled="tIndex === 0"
+                                            class="p-1 text-slate-400 hover:text-indigo-600">
+                                            <span class="material-icons text-sm">expand_less</span>
+                                        </button>
+                                        <button @click="moveTodo(gIndex, tIndex, 1)"
+                                            :disabled="tIndex === group.todos.length - 1"
+                                            class="p-1 text-slate-400 hover:text-indigo-600">
+                                            <span class="material-icons text-sm">expand_more</span>
+                                        </button>
+                                        <button @click="deleteTodo(gIndex, tIndex)"
+                                            class="ml-1 p-1 text-slate-400 hover:text-red-500">
+                                            <span class="material-icons text-sm">close</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div class="mt-4 pt-2 border-t border-slate-100 dark:border-slate-800"
+                                x-data="{ showMassInput: false, massInputText: '' }">
+                                <div class="flex justify-end mb-2">
+                                    <button @click="showMassInput = !showMassInput"
+                                        class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
+                                        <span
+                                            x-text="showMassInput ? 'Switch to Single Input' : 'Switch to Mass Input'"></span>
+                                    </button>
+                                </div>
+
+                                <div x-show="!showMassInput" class="relative">
+                                    <span
+                                        class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">add</span>
+                                    <input type="text" placeholder="Add a new task..."
+                                        class="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-white dark:placeholder-slate-500"
+                                        @keydown.enter="addTodo(gIndex, $event.target.value); $event.target.value = ''">
+                                </div>
+
+                                <div x-show="showMassInput" class="space-y-2">
+                                    <textarea x-model="massInputText" rows="3"
+                                        placeholder="Paste your tasks here, one per line..."
+                                        class="w-full p-3 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-white dark:placeholder-slate-500 resize-y"></textarea>
+                                    <button
+                                        @click="addMassTodos(gIndex, massInputText); massInputText = ''; showMassInput = false"
+                                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium transition-colors shadow-sm active:scale-95">
+                                        Add Tasks
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        function todoApp() {
+            return {
+                groups: [],
+                darkMode: false,
+
+                init() {
+                    // Load groups
+                    const savedGroups = localStorage.getItem('alpine_todo_data');
+                    this.groups = savedGroups ? JSON.parse(savedGroups) : [];
+
+                    // Load theme
+                    const savedTheme = localStorage.getItem('todo_theme');
+                    this.darkMode = savedTheme === 'dark';
+
+                    // Watchers
+                    this.$watch('groups', val => localStorage.setItem('alpine_todo_data', JSON.stringify(val)), { deep: true });
+                    this.$watch('darkMode', val => localStorage.setItem('todo_theme', val ? 'dark' : 'light'));
+
+                    if (this.groups.length === 0) this.addGroup('My Project');
+                },
+
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                },
+
+                addGroup(name = 'New Group') {
+                    this.groups.unshift({ id: Date.now(), name, collapsed: false, todos: [] });
+                },
+
+                deleteGroup(index) {
+                    if (confirm('Delete group?')) this.groups.splice(index, 1);
+                },
+
+                moveGroup(index, dir) {
+                    let target = index + dir;
+                    if (target >= 0 && target < this.groups.length) {
+                        [this.groups[index], this.groups[target]] = [this.groups[target], this.groups[index]];
+                    }
+                },
+
+                addTodo(gIdx, text) {
+                    if (!text.trim()) return;
+                    this.groups[gIdx].todos.push({ id: Date.now(), text, done: false });
+                },
+
+                addMassTodos(gIdx, text) {
+                    if (!text.trim()) return;
+                    const lines = text.split('\n');
+                    lines.forEach((line, index) => {
+                        if (line.trim()) {
+                            this.groups[gIdx].todos.push({
+                                id: Date.now() + index,
+                                text: line.trim(),
+                                done: false
+                            });
+                        }
+                    });
+                },
+
+                deleteTodo(gIdx, tIdx) {
+                    this.groups[gIdx].todos.splice(tIdx, 1);
+                },
+
+                moveTodo(gIdx, tIdx, dir) {
+                    let group = this.groups[gIdx];
+                    let target = tIdx + dir;
+                    if (target >= 0 && target < group.todos.length) {
+                        [group.todos[tIdx], group.todos[target]] = [group.todos[target], group.todos[tIdx]];
+                    }
+                },
+
+                calculateProgress(group) {
+                    if (!group.todos.length) return 0;
+                    return Math.round((group.todos.filter(t => t.done).length / group.todos.length) * 100);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

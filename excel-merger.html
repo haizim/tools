@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Sheet Merger - Dark Mode</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body
+    class="min-h-screen flex items-center justify-center p-4 md:p-8 font-sans transition-colors duration-200 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+    x-data="excelMerger()">
+
+    <main
+        class="w-full max-w-3xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-200">
+        <header
+            class="bg-blue-600 dark:bg-blue-800 p-6 text-white flex items-center justify-between transition-colors duration-200">
+            <div class="flex items-center gap-3">
+                <span class="material-icons text-3xl">library_books</span>
+                <div>
+                    <h1 class="text-2xl font-bold leading-tight">Excel Sheet Merger</h1>
+                    <p class="text-blue-100 dark:text-blue-200 text-sm">Gabungkan banyak file Excel menjadi satu</p>
+                </div>
+            </div>
+            <button @click="toggleDarkMode"
+                class="p-2 rounded-full hover:bg-white/20 transition-colors focus:outline-none"
+                :title="isDarkMode ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap'">
+                <span class="material-icons" x-text="isDarkMode ? 'light_mode' : 'dark_mode'"></span>
+            </button>
+        </header>
+
+        <div class="p-6 md:p-8">
+            <div :class="{
+                    'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/30': isDragging,
+                    'border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-700/50': !isDragging
+                 }" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
+                @drop.prevent="isDragging = false; handleDrop($event)"
+                class="border-2 border-dashed rounded-xl p-8 text-center hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors relative cursor-pointer">
+
+                <input type="file" multiple accept=".xlsx, .xls, .csv"
+                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" @change="handleFileSelect">
+
+                <span class="material-icons text-5xl text-blue-500 dark:text-blue-400 mb-2">cloud_upload</span>
+                <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200">Pilih atau Tarik File Excel ke sini
+                </h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Mendukung format .xlsx, .xls</p>
+            </div>
+
+            <div class="mt-8" x-show="files.length > 0" x-transition>
+                <div class="flex justify-between items-end mb-4">
+                    <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200">File Terpilih (<span
+                            x-text="files.length"></span>)</h3>
+                    <button @click="clearFiles"
+                        class="text-sm text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors">Hapus
+                        Semua</button>
+                </div>
+
+                <ul class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    <template x-for="(file, index) in files" :key="index">
+                        <li
+                            class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <span class="material-icons text-green-600 dark:text-green-400">table_chart</span>
+                                <span class="truncate text-sm font-medium text-slate-600 dark:text-slate-300"
+                                    x-text="file.name"></span>
+                            </div>
+                            <button @click="removeFile(index)"
+                                class="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                title="Hapus file">
+                                <span class="material-icons">close</span>
+                            </button>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+
+            <div
+                class="mt-8 border-t border-slate-100 dark:border-slate-700 pt-6 flex flex-col items-center transition-colors">
+                <div x-show="errorMessage" x-transition
+                    class="w-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-lg flex items-start gap-2 mb-4 text-sm border border-red-100 dark:border-red-800/50">
+                    <span class="material-icons text-base mt-0.5">error</span>
+                    <span x-text="errorMessage"></span>
+                </div>
+
+                <button @click="mergeFiles" :disabled="files.length < 1 || isProcessing"
+                    class="w-full md:w-auto px-8 py-3 rounded-lg font-semibold text-white transition-all flex items-center justify-center gap-2"
+                    :class="(files.length < 1 || isProcessing) ? 'bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg dark:bg-blue-600 dark:hover:bg-blue-500'">
+
+                    <span class="material-icons" x-show="!isProcessing"
+                        :class="isDone ? 'hidden' : ''">call_merge</span>
+                    <span class="material-icons animate-spin" x-show="isProcessing">autorenew</span>
+                    <span class="material-icons" x-show="isDone && !isProcessing">check_circle</span>
+
+                    <span x-text="buttonText"></span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function excelMerger() {
+            return {
+                files: [],
+                isProcessing: false,
+                isDone: false,
+                errorMessage: '',
+                isDragging: false,
+                isDarkMode: false,
+
+                // Alpine otomatis memanggil fungsi init() jika ada
+                init() {
+                    // Cek localStorage atau preferensi OS user
+                    if (localStorage.getItem('darkMode') === 'true' ||
+                        (!('darkMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                        this.isDarkMode = true;
+                        document.documentElement.classList.add('dark');
+                    }
+                },
+
+                toggleDarkMode() {
+                    this.isDarkMode = !this.isDarkMode;
+                    localStorage.setItem('darkMode', this.isDarkMode);
+                    if (this.isDarkMode) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+
+                get buttonText() {
+                    if (this.isProcessing) return 'Sedang Memproses...';
+                    if (this.isDone) return 'Berhasil! Unduh Lagi?';
+                    return 'Gabungkan File Excel';
+                },
+
+                handleFileSelect(event) {
+                    this.addFiles(event.target.files);
+                    event.target.value = '';
+                },
+
+                handleDrop(event) {
+                    this.addFiles(event.dataTransfer.files);
+                },
+
+                addFiles(newFiles) {
+                    this.errorMessage = '';
+                    this.isDone = false;
+
+                    for (let i = 0; i < newFiles.length; i++) {
+                        if (newFiles[i].name.match(/\.(xlsx|xls|csv)$/i)) {
+                            this.files.push(newFiles[i]);
+                        } else {
+                            this.errorMessage = 'Beberapa file diabaikan karena format tidak didukung.';
+                        }
+                    }
+                },
+
+                removeFile(index) {
+                    this.files.splice(index, 1);
+                    this.isDone = false;
+                },
+
+                clearFiles() {
+                    this.files = [];
+                    this.errorMessage = '';
+                    this.isDone = false;
+                },
+
+                async mergeFiles() {
+                    if (this.files.length === 0) return;
+
+                    this.isProcessing = true;
+                    this.errorMessage = '';
+                    this.isDone = false;
+
+                    try {
+                        const newWb = XLSX.utils.book_new();
+                        const existingSheetNames = new Set();
+
+                        for (let i = 0; i < this.files.length; i++) {
+                            const file = this.files[i];
+                            const arrayBuffer = await file.arrayBuffer();
+                            const wb = XLSX.read(arrayBuffer, { type: 'array' });
+
+                            wb.SheetNames.forEach(name => {
+                                const sheet = wb.Sheets[name];
+                                let newName = name;
+                                let counter = 1;
+
+                                while (existingSheetNames.has(newName)) {
+                                    const suffix = `_${counter}`;
+                                    const baseName = name.substring(0, 31 - suffix.length);
+                                    newName = `${baseName}${suffix}`;
+                                    counter++;
+                                }
+
+                                existingSheetNames.add(newName);
+                                XLSX.utils.book_append_sheet(newWb, sheet, newName);
+                            });
+                        }
+
+                        XLSX.writeFile(newWb, `Merged_Excel_${new Date().getTime()}.xlsx`);
+                        this.isDone = true;
+
+                    } catch (error) {
+                        console.error(error);
+                        this.errorMessage = 'Terjadi kesalahan saat memproses file. Pastikan file Excel tidak rusak (corrupt).';
+                    } finally {
+                        this.isProcessing = false;
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* CSS murni untuk menangani scrollbar styling sesuai tema (Dark/Light) */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+
+        html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</body>
+
+</html>

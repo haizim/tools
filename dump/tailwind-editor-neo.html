@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Alpine Tailwind Editor v1.1</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        gray: { 750: '#2d3748', 850: '#1a202c', 950: '#171923' }
+                    }
+                }
+            },
+            // Safe list pattern to ensure dynamic classes work in CDN mode if needed
+            // safelist: [
+            //     { pattern: /bg-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|100|200|300|400|500|600|700|800|900|950)/ },
+            //     { pattern: /text-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|100|200|300|400|500|600|700|800|900|950)/ }
+            // ]
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a202c;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #718096;
+        }
+
+        /* Selection Visuals */
+        .editor-selected {
+            outline: 2px dashed #3b82f6 !important;
+            outline-offset: -2px;
+            position: relative;
+            z-index: 50;
+            cursor: default;
+        }
+
+        .preview-area a {
+            pointer-events: none;
+        }
+
+        /* Checkered background for transparent button */
+        .bg-checkered {
+            background-color: #fff;
+            background-image:
+                linear-gradient(45deg, #ccc 25%, transparent 25%),
+                linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #ccc 75%),
+                linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 10px 10px;
+            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-300 h-screen w-screen overflow-hidden flex flex-col font-sans" x-data="editor()">
+
+    <header class="h-14 bg-gray-950 border-b border-gray-800 flex items-center justify-between px-4 shrink-0 z-50">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 text-blue-500 font-bold tracking-tight">
+                <span class="material-icons">dashboard_customize</span>
+                <span>MiniBuilder</span>
+            </div>
+
+            <div class="h-6 w-px bg-gray-700 mx-2"></div>
+            <div class="flex gap-1">
+                <button @click="panels.source = !panels.source"
+                    :class="panels.source ? 'bg-gray-800 text-white' : 'hover:bg-gray-800'"
+                    class="p-1.5 rounded transition" title="Toggle Source">
+                    <span class="material-icons text-sm">code</span>
+                </button>
+                <button @click="panels.inspector = !panels.inspector"
+                    :class="panels.inspector ? 'bg-gray-800 text-white' : 'hover:bg-gray-800'"
+                    class="p-1.5 rounded transition" title="Toggle Inspector">
+                    <span class="material-icons text-sm">tune</span>
+                </button>
+            </div>
+
+            <div class="h-6 w-px bg-gray-700 mx-2"></div>
+            <div class="flex gap-1">
+                <button @click="undo()" :disabled="historyIndex <= 0"
+                    class="p-1.5 rounded hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Undo (Ctrl+Z)">
+                    <span class="material-icons text-sm">undo</span>
+                </button>
+                <button @click="redo()" :disabled="historyIndex >= history.length - 1"
+                    class="p-1.5 rounded hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Redo (Ctrl+Y)">
+                    <span class="material-icons text-sm">redo</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex bg-gray-800 rounded p-1">
+            <button @click="viewport = '100%'"
+                :class="viewport === '100%' ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'"
+                class="p-1 rounded px-2 flex items-center transition">
+                <span class="material-icons text-sm">desktop_windows</span>
+            </button>
+            <button @click="viewport = '768px'"
+                :class="viewport === '768px' ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'"
+                class="p-1 rounded px-2 flex items-center transition">
+                <span class="material-icons text-sm">tablet_mac</span>
+            </button>
+            <button @click="viewport = '375px'"
+                :class="viewport === '375px' ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'"
+                class="p-1 rounded px-2 flex items-center transition">
+                <span class="material-icons text-sm">smartphone</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+
+        <div x-show="panels.source" class="w-96 flex flex-col border-r border-gray-800 bg-gray-900 shrink-0">
+            <div
+                class="bg-gray-800 px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+                HTML Source
+                <button @click="formatSource()" class="text-blue-400 hover:text-white text-[10px]">Prettify</button>
+            </div>
+            <textarea x-model.debounce.500ms="code" @input="updatePreviewFromSource"
+                class="flex-1 w-full bg-[#0d1117] text-gray-300 font-mono text-xs p-4 resize-none focus:outline-none leading-relaxed"></textarea>
+        </div>
+
+        <div class="flex-1 bg-gray-850 relative flex flex-col items-center justify-center overflow-auto p-8"
+            @click.self="deselect()">
+            <div :style="`width: ${viewport}`"
+                class="transition-all duration-300 ease-in-out bg-white h-full shadow-2xl relative overflow-y-auto">
+                <div id="canvas-root" class="preview-area min-h-full" x-html="renderedCode"
+                    @click="handlePreviewClick($event)"></div>
+            </div>
+
+            <div x-show="!code" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div class="bg-gray-800 p-6 rounded-lg text-center shadow-xl border border-gray-700">
+                    <span class="material-icons text-6xl text-gray-600 mb-4">code_off</span>
+                    <h3 class="text-lg font-medium text-white">No Content</h3>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="panels.inspector"
+            class="w-80 flex flex-col border-l border-gray-800 bg-gray-900 shrink-0 overflow-y-auto custom-scrollbar">
+
+            <div class="bg-gray-800 px-4 py-3 border-b border-gray-700">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Properties</h3>
+                <div class="flex items-center gap-1 mt-2 text-xs overflow-x-auto whitespace-nowrap pb-1 scrollbar-hide">
+                    <template x-for="(crumb, index) in breadcrumbs" :key="index">
+                        <div class="flex items-center">
+                            <span class="material-icons text-[10px] text-gray-600 mx-1"
+                                x-show="index > 0">chevron_right</span>
+                            <button @click="selectElement(crumb.el)"
+                                class="hover:text-white px-1 py-0.5 rounded hover:bg-gray-700 transition"
+                                :class="crumb.active ? 'text-blue-400 font-semibold' : 'text-gray-500'"
+                                x-text="crumb.tag"></button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="!selectedEl" class="p-8 text-center text-gray-500">
+                <span class="material-icons text-4xl mb-2 opacity-50">touch_app</span>
+                <p class="text-sm">Select an element to edit.</p>
+            </div>
+
+            <div x-show="selectedEl" class="divide-y divide-gray-800">
+
+                <div class="p-4 grid grid-cols-4 gap-2">
+                    <button @click="moveElement('up')"
+                        class="bg-gray-800 hover:bg-gray-700 p-2 rounded text-gray-300"><span
+                            class="material-icons text-sm">arrow_upward</span></button>
+                    <button @click="moveElement('down')"
+                        class="bg-gray-800 hover:bg-gray-700 p-2 rounded text-gray-300"><span
+                            class="material-icons text-sm">arrow_downward</span></button>
+                    <button @click="duplicateElement()"
+                        class="bg-gray-800 hover:bg-gray-700 p-2 rounded text-gray-300"><span
+                            class="material-icons text-sm">content_copy</span></button>
+                    <button @click="deleteElement()"
+                        class="bg-red-900/30 hover:bg-red-900/50 p-2 rounded text-red-400"><span
+                            class="material-icons text-sm">delete</span></button>
+                </div>
+
+                <div class="p-4">
+                    <label class="block text-xs font-semibold text-gray-500 mb-2">Content</label>
+                    <template x-if="textNodes.length > 0">
+                        <div class="space-y-2 mb-3">
+                            <template x-for="(node, idx) in textNodes">
+                                <input type="text" x-model="node.text" @input="updateTextNode(idx, $event.target.value)"
+                                    class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none">
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="selectedTag === 'IMG'">
+                        <div class="mb-2">
+                            <span class="text-[10px] text-gray-500 uppercase">Src URL</span>
+                            <input type="text" x-model="selectedAttrs.src"
+                                @change="updateAttr('src', $event.target.value)"
+                                class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-blue-300">
+                        </div>
+                    </template>
+                </div>
+
+                <div class="p-4" x-data="{ open: true }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-semibold text-gray-400 mb-2">
+                        <span>Typography</span>
+                        <span class="material-icons text-sm transform transition"
+                            :class="open ? 'rotate-180' : ''">expand_more</span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div class="flex bg-gray-800 rounded p-1">
+                            <button @click="toggleStyle('text-left', /^text-(left|center|right|justify)$/)"
+                                class="flex-1 p-1 hover:bg-gray-700 rounded"><span
+                                    class="material-icons text-xs">format_align_left</span></button>
+                            <button @click="toggleStyle('text-center', /^text-(left|center|right|justify)$/)"
+                                class="flex-1 p-1 hover:bg-gray-700 rounded"><span
+                                    class="material-icons text-xs">format_align_center</span></button>
+                            <button @click="toggleStyle('text-right', /^text-(left|center|right|justify)$/)"
+                                class="flex-1 p-1 hover:bg-gray-700 rounded"><span
+                                    class="material-icons text-xs">format_align_right</span></button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-gray-500 w-8">Size</span>
+                            <select @change="toggleStyle($event.target.value, /^text-(xs|sm|base|lg|xl|2xl|3xl|4xl)$/)"
+                                class="flex-1 bg-gray-800 text-xs border border-gray-700 rounded px-2 py-1">
+                                <option value="">Default</option>
+                                <option value="text-xs">XS</option>
+                                <option value="text-sm">SM</option>
+                                <option value="text-base">Base</option>
+                                <option value="text-lg">LG</option>
+                                <option value="text-xl">XL</option>
+                                <option value="text-4xl">4XL</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <span class="text-[10px] text-gray-500 block mb-1">Color Family</span>
+                            <select x-model="tempColorFamily"
+                                class="w-full bg-gray-800 text-xs border border-gray-700 rounded px-2 py-1 mb-2 capitalize">
+                                <template x-for="c in colorConfig.families">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+
+                            <div class="grid grid-cols-6 gap-1.5">
+                                <template x-for="s in colorConfig.shades">
+                                    <button
+                                        @click="toggleStyle(`text-${tempColorFamily}-${s}`, /^text-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|100|200|300|400|500|600|700|800|900|950)$/)"
+                                        :class="`bg-${tempColorFamily}-${s}`"
+                                        class="h-6 w-full rounded-sm border border-gray-700/50 hover:scale-110 hover:border-white transition-transform focus:outline-none focus:ring-1 focus:ring-white"
+                                        :title="`text-${tempColorFamily}-${s}`"></button>
+                                </template>
+                                <button @click="toggleStyle('text-white', /^text-(white|black)/)"
+                                    class="bg-white h-6 w-full rounded-sm border border-gray-600"
+                                    title="text-white"></button>
+                                <button @click="toggleStyle('text-black', /^text-(white|black)/)"
+                                    class="bg-black h-6 w-full rounded-sm border border-gray-600"
+                                    title="text-black"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: false }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-semibold text-gray-400 mb-2">
+                        <span>Background</span>
+                        <span class="material-icons text-sm transform transition"
+                            :class="open ? 'rotate-180' : ''">expand_more</span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] text-gray-500">Color Family</span>
+                                <button @click="toggleStyle('bg-transparent', /^bg-/)"
+                                    class="text-[10px] text-blue-400 hover:text-white">Clear</button>
+                            </div>
+                            <select x-model="tempBgFamily"
+                                class="w-full bg-gray-800 text-xs border border-gray-700 rounded px-2 py-1 mb-2 capitalize">
+                                <template x-for="c in colorConfig.families">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+
+                            <div class="grid grid-cols-6 gap-1.5">
+                                <template x-for="s in colorConfig.shades">
+                                    <button
+                                        @click="toggleStyle(`bg-${tempBgFamily}-${s}`, /^bg-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|100|200|300|400|500|600|700|800|900|950)$/)"
+                                        :class="`bg-${tempBgFamily}-${s}`"
+                                        class="h-6 w-full rounded-sm border border-gray-700/50 hover:scale-110 hover:border-white transition-transform focus:outline-none focus:ring-1 focus:ring-white"
+                                        :title="`bg-${tempBgFamily}-${s}`"></button>
+                                </template>
+                                <button @click="toggleStyle('bg-white', /^bg-(white|black|transparent)/)"
+                                    class="bg-white h-6 w-full rounded-sm border border-gray-600"
+                                    title="bg-white"></button>
+                                <button @click="toggleStyle('bg-black', /^bg-(white|black|transparent)/)"
+                                    class="bg-black h-6 w-full rounded-sm border border-gray-600"
+                                    title="bg-black"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: false }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-semibold text-gray-400 mb-2">
+                        <span>Spacing</span>
+                        <span class="material-icons text-sm transform transition"
+                            :class="open ? 'rotate-180' : ''">expand_more</span>
+                    </button>
+                    <div x-show="open" class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-[10px] text-gray-500 mb-1">
+                                <span>Margin</span>
+                                <span x-text="spacingVals.m"></span>
+                            </div>
+                            <input type="range" min="0" max="12" step="1" x-model="spacingVals.m"
+                                @input="toggleStyle(`m-${spacingVals.m}`, /^m-\d+$/)"
+                                class="w-full accent-green-500 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] text-gray-500 mb-1">
+                                <span>Padding</span>
+                                <span x-text="spacingVals.p"></span>
+                            </div>
+                            <input type="range" min="0" max="12" step="1" x-model="spacingVals.p"
+                                @input="toggleStyle(`p-${spacingVals.p}`, /^p-\d+$/)"
+                                class="w-full accent-blue-500 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" x-data="{ open: false }">
+                    <button @click="open = !open"
+                        class="flex items-center justify-between w-full text-xs font-semibold text-gray-400 mb-2">
+                        <span>Borders</span>
+                        <span class="material-icons text-sm transform transition"
+                            :class="open ? 'rotate-180' : ''">expand_more</span>
+                    </button>
+                    <div x-show="open" class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-gray-500 w-10">Width</span>
+                            <div class="flex bg-gray-800 rounded p-1 flex-1">
+                                <button @click="toggleStyle('border-0', /^border-(\d+|t|b|l|r)/)"
+                                    class="flex-1 text-[10px] hover:bg-gray-700 rounded py-1">0</button>
+                                <button @click="toggleStyle('border', /^border-(\d+|t|b|l|r)/)"
+                                    class="flex-1 text-[10px] hover:bg-gray-700 rounded py-1">1</button>
+                                <button @click="toggleStyle('border-2', /^border-(\d+|t|b|l|r)/)"
+                                    class="flex-1 text-[10px] hover:bg-gray-700 rounded py-1">2</button>
+                                <button @click="toggleStyle('border-4', /^border-(\d+|t|b|l|r)/)"
+                                    class="flex-1 text-[10px] hover:bg-gray-700 rounded py-1">4</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-gray-500 w-10">Radius</span>
+                            <select @change="toggleStyle($event.target.value, /^rounded(-.*)?$/)"
+                                class="flex-1 bg-gray-800 text-xs border border-gray-700 rounded px-2 py-1">
+                                <option value="rounded-none">None</option>
+                                <option value="rounded-sm">SM</option>
+                                <option value="rounded-md">MD</option>
+                                <option value="rounded-lg">LG</option>
+                                <option value="rounded-full">Full</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function editor() {
+            return {
+                code: '',
+                renderedCode: '',
+                selectedEl: null,
+                selectedTag: '',
+                selectedAttrs: {},
+                breadcrumbs: [],
+                textNodes: [],
+                viewport: '100%',
+                panels: { source: false, inspector: true },
+
+                tempColorFamily: 'blue',
+                tempBgFamily: 'gray',
+                spacingVals: { m: 0, p: 0 },
+
+                history: [],
+                historyIndex: -1,
+
+                colorConfig: {
+                    families: ['slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'],
+                    shades: ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']
+                },
+
+                init() {
+                    const starter = `
+<div class="min-h-full bg-slate-100 flex items-center justify-center p-8">
+  <div class="bg-white rounded-lg shadow-xl overflow-hidden max-w-md w-full border border-gray-200">
+    <div class="h-32 bg-indigo-600 flex items-center justify-center">
+        <span class="text-white text-4xl font-bold opacity-25">BANNER</span>
+    </div>
+    <div class="p-6">
+      <div class="flex items-center gap-2 mb-2">
+         <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">NEW</span>
+         <h2 class="text-2xl font-bold text-gray-800">Visual Editor</h2>
+      </div>
+      <p class="text-gray-600 mb-6 text-sm leading-relaxed">
+        Select this text to change color, size, or font weight. Click the buttons below to see hover states.
+      </p>
+      <div class="flex gap-2">
+        <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded shadow transition">Accept</button>
+        <button class="flex-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded transition">Decline</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+                    this.code = starter.trim();
+                    this.renderedCode = this.code;
+                    this.saveHistory();
+
+                    window.addEventListener('keydown', (e) => {
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.undo(); }
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); this.redo(); }
+                    });
+                },
+
+                handlePreviewClick(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.selectElement(e.target);
+                },
+
+                selectElement(el) {
+                    if (!el || el.id === 'canvas-root') return;
+                    if (this.selectedEl) this.selectedEl.classList.remove('editor-selected');
+
+                    this.selectedEl = el;
+                    this.selectedEl.classList.add('editor-selected');
+                    this.selectedTag = el.tagName;
+                    this.selectedAttrs = { src: el.getAttribute('src') || '', href: el.getAttribute('href') || '' };
+
+                    this.textNodes = [];
+                    el.childNodes.forEach((node, idx) => {
+                        if (node.nodeType === 3 && node.nodeValue.trim() !== '') {
+                            this.textNodes.push({ index: idx, text: node.nodeValue.trim() });
+                        }
+                    });
+
+                    this.breadcrumbs = [];
+                    let curr = el;
+                    while (curr && curr.id !== 'canvas-root') {
+                        this.breadcrumbs.unshift({ tag: curr.tagName.toLowerCase(), el: curr, active: curr === el });
+                        curr = curr.parentElement;
+                    }
+                    this.breadcrumbs.unshift({ tag: 'root', el: document.getElementById('canvas-root'), active: false });
+                },
+
+                deselect() {
+                    if (this.selectedEl) this.selectedEl.classList.remove('editor-selected');
+                    this.selectedEl = null;
+                    this.breadcrumbs = [];
+                },
+
+                toggleStyle(newClass, regex) {
+                    if (!this.selectedEl) return;
+
+                    let cls = this.selectedEl.className;
+                    if (regex) cls = cls.replace(new RegExp(regex, 'g'), '');
+                    if (newClass) cls += ' ' + newClass;
+
+                    this.selectedEl.className = cls.replace(/\s+/g, ' ').trim();
+                    this.syncDOMtoCode();
+                },
+
+                updateTextNode(idx, newVal) {
+                    let count = 0;
+                    this.selectedEl.childNodes.forEach((node) => {
+                        if (node.nodeType === 3 && node.nodeValue.trim() !== '') {
+                            if (count === idx) node.nodeValue = newVal;
+                            count++;
+                        }
+                    });
+                    this.syncDOMtoCode();
+                },
+
+                updateAttr(attr, val) {
+                    this.selectedEl.setAttribute(attr, val);
+                    this.syncDOMtoCode();
+                },
+
+                moveElement(dir) {
+                    if (!this.selectedEl) return;
+                    const el = this.selectedEl;
+                    const parent = el.parentNode;
+                    if (dir === 'up' && el.previousElementSibling) parent.insertBefore(el, el.previousElementSibling);
+                    else if (dir === 'down' && el.nextElementSibling) parent.insertBefore(el.nextElementSibling, el);
+                    this.syncDOMtoCode();
+                },
+
+                duplicateElement() {
+                    if (!this.selectedEl) return;
+                    const clone = this.selectedEl.cloneNode(true);
+                    clone.classList.remove('editor-selected');
+                    this.selectedEl.after(clone);
+                    this.syncDOMtoCode();
+                },
+
+                deleteElement() {
+                    if (!this.selectedEl) return;
+                    this.selectedEl.remove();
+                    this.selectedEl = null;
+                    this.syncDOMtoCode();
+                },
+
+                updatePreviewFromSource() {
+                    this.renderedCode = this.code;
+                    this.deselect();
+                },
+
+                syncDOMtoCode() {
+                    const root = document.getElementById('canvas-root').cloneNode(true);
+                    const selected = root.querySelectorAll('.editor-selected');
+                    selected.forEach(el => el.classList.remove('editor-selected'));
+                    this.code = root.innerHTML;
+                    this.saveHistory();
+                },
+
+                formatSource() {
+                    let formatted = '';
+                    let indent = 0;
+                    this.code.split(/>\s*</).forEach(node => {
+                        if (node.match(/^\/\w/)) indent -= 1;
+                        formatted += new Array(indent * 2 + 1).join(' ') + '<' + node + '>\n';
+                        if (node.match(/^<?\w[^>]*[^\/]$/) && !node.startsWith("input") && !node.startsWith("img")) indent += 1;
+                    });
+                    this.code = formatted.substring(1, formatted.length - 3);
+                },
+
+                saveHistory() {
+                    if (this.historyIndex < this.history.length - 1) this.history = this.history.slice(0, this.historyIndex + 1);
+                    this.history.push(this.code);
+                    if (this.history.length > 20) this.history.shift();
+                    this.historyIndex = this.history.length - 1;
+                },
+
+                undo() {
+                    if (this.historyIndex > 0) {
+                        this.historyIndex--;
+                        this.code = this.history[this.historyIndex];
+                        this.renderedCode = this.code;
+                        this.deselect();
+                    }
+                },
+
+                redo() {
+                    if (this.historyIndex < this.history.length - 1) {
+                        this.historyIndex++;
+                        this.code = this.history[this.historyIndex];
+                        this.renderedCode = this.code;
+                        this.deselect();
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

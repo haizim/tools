@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tailwind Visual Page Editor</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Selection Overlay Style */
+        .editor-selected {
+            outline: 2px dashed #3b82f6 !important;
+            /* blue-500 */
+            outline-offset: -2px;
+            cursor: default;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-200 h-screen overflow-hidden font-sans" x-data="pageEditor()" x-init="initEditor()">
+
+    <header class="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4 shrink-0 z-10">
+        <div class="flex items-center gap-2">
+            <span class="material-icons text-blue-400">code</span>
+            <h1 class="font-bold tracking-wide">Mini Alpine <span class="text-blue-400">Builder</span></h1>
+        </div>
+        <button @click="copyToClipboard()"
+            class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-sm transition font-medium">
+            <span class="material-icons text-sm">content_copy</span>
+            Copy HTML
+        </button>
+    </header>
+
+    <main class="flex h-[calc(100vh-3.5rem)]">
+
+        <section class="w-1/4 border-r border-gray-700 flex flex-col bg-gray-900">
+            <div
+                class="bg-gray-800 px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-700">
+                Source Code</div>
+            <textarea x-model="sourceCode" @input.debounce.500ms="syncPreview()"
+                class="w-full h-full bg-gray-900 text-gray-300 font-mono text-sm p-4 outline-none resize-none leading-relaxed"
+                spellcheck="false"></textarea>
+        </section>
+
+        <section class="w-2/4 bg-gray-100 relative overflow-hidden flex flex-col">
+            <div
+                class="bg-gray-200 px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-300 flex justify-between">
+                <span>Preview</span>
+                <span class="text-[10px] bg-gray-300 px-2 rounded text-gray-600">Click elements to edit</span>
+            </div>
+
+            <div class="flex-1 overflow-auto p-8 relative" id="preview-container">
+                <div x-ref="previewCanvas" @click.stop.prevent="handleSelection($event)"
+                    class="min-h-full bg-white shadow-sm rounded text-black transition-all">
+                </div>
+            </div>
+        </section>
+
+        <section class="w-1/4 border-l border-gray-700 bg-gray-800 flex flex-col overflow-hidden">
+            <div
+                class="bg-gray-800 px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-700">
+                Inspector</div>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-6">
+
+                <template x-if="!selectedEl">
+                    <div class="text-center text-gray-500 mt-10">
+                        <span class="material-icons text-4xl mb-2 opacity-50">touch_app</span>
+                        <p class="text-sm">Select an element in the preview to edit properties.</p>
+                    </div>
+                </template>
+
+                <template x-if="selectedEl">
+                    <div class="space-y-6 animate-fade-in">
+
+                        <div class="flex items-center justify-between pb-2 border-b border-gray-700">
+                            <span class="text-blue-400 font-mono text-sm font-bold" x-text="tagName"></span>
+                            <button @click="deleteElement()" class="text-red-400 hover:text-red-300 transition">
+                                <span class="material-icons text-sm">delete</span>
+                            </button>
+                        </div>
+
+                        <div class="space-y-3">
+                            <p class="text-xs font-semibold text-gray-400 uppercase">Content</p>
+
+                            <template x-for="(node, index) in textNodes" :key="index">
+                                <div class="space-y-1">
+                                    <label class="text-[10px] text-gray-500">Text Content</label>
+                                    <textarea x-model="node.text" @input="updateTextNode(index, node.text)"
+                                        class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:border-blue-500 outline-none">
+                                    </textarea>
+                                </div>
+                            </template>
+
+                            <template x-if="tagName === 'IMG'">
+                                <div class="space-y-1">
+                                    <label class="text-[10px] text-gray-500">Source URL</label>
+                                    <input type="text" x-model="imgSrc" @change="updateAttr('src', imgSrc)"
+                                        class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:border-blue-500 outline-none">
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="space-y-3">
+                            <p class="text-xs font-semibold text-gray-400 uppercase">Typography</p>
+
+                            <div class="grid grid-cols-6 gap-2">
+                                <template x-for="color in colors">
+                                    <button @click="applyClass('text', 'text-' + color + '-600')"
+                                        :class="`bg-${color}-600 w-6 h-6 rounded-full border-2 border-transparent hover:border-white`"
+                                        :title="color"></button>
+                                </template>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <select @change="applyClass('text', $event.target.value)"
+                                    class="bg-gray-900 border border-gray-600 text-xs rounded px-2 py-1 flex-1 text-white">
+                                    <option value="">Align</option>
+                                    <option value="text-left">Left</option>
+                                    <option value="text-center">Center</option>
+                                    <option value="text-right">Right</option>
+                                </select>
+                                <select @change="applyClass('font', $event.target.value)"
+                                    class="bg-gray-900 border border-gray-600 text-xs rounded px-2 py-1 flex-1 text-white">
+                                    <option value="">Weight</option>
+                                    <option value="font-light">Light</option>
+                                    <option value="font-normal">Normal</option>
+                                    <option value="font-bold">Bold</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <p class="text-xs font-semibold text-gray-400 uppercase">Spacing</p>
+
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs text-gray-500"><span>Padding</span> <span
+                                        x-text="currentPadding"></span></div>
+                                <input type="range" min="0" max="12" step="1" x-model="currentPadding"
+                                    @input="applyClass('p', 'p-' + currentPadding)"
+                                    class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                            </div>
+
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs text-gray-500"><span>Margin</span> <span
+                                        x-text="currentMargin"></span></div>
+                                <input type="range" min="0" max="12" step="1" x-model="currentMargin"
+                                    @input="applyClass('m', 'm-' + currentMargin)"
+                                    class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <p class="text-xs font-semibold text-gray-400 uppercase">Appearance</p>
+
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-gray-500">Background</label>
+                                <div class="grid grid-cols-6 gap-2">
+                                    <button @click="applyClass('bg', 'bg-transparent')"
+                                        class="w-6 h-6 rounded border border-gray-500 flex items-center justify-center bg-gray-800 text-[8px]">X</button>
+                                    <template x-for="color in colors">
+                                        <button @click="applyClass('bg', 'bg-' + color + '-100')"
+                                            :class="`bg-${color}-100 w-6 h-6 rounded border border-transparent hover:border-white`"></button>
+                                    </template>
+                                    <template x-for="color in colors">
+                                        <button @click="applyClass('bg', 'bg-' + color + '-500')"
+                                            :class="`bg-${color}-500 w-6 h-6 rounded border border-transparent hover:border-white`"></button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1 pt-2">
+                                <label class="text-[10px] text-gray-500">Corner Radius</label>
+                                <div class="flex gap-1">
+                                    <button @click="applyClass('rounded', 'rounded-none')"
+                                        class="px-2 py-1 bg-gray-700 text-xs rounded hover:bg-gray-600">0</button>
+                                    <button @click="applyClass('rounded', 'rounded-sm')"
+                                        class="px-2 py-1 bg-gray-700 text-xs rounded-sm hover:bg-gray-600">S</button>
+                                    <button @click="applyClass('rounded', 'rounded-md')"
+                                        class="px-2 py-1 bg-gray-700 text-xs rounded-md hover:bg-gray-600">M</button>
+                                    <button @click="applyClass('rounded', 'rounded-full')"
+                                        class="px-2 py-1 bg-gray-700 text-xs rounded-full hover:bg-gray-600">O</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function pageEditor() {
+            return {
+                // State
+                sourceCode: '',
+                selectedEl: null,
+                tagName: '',
+                textNodes: [],
+                imgSrc: '',
+
+                // Styling State for Sliders
+                currentPadding: 0,
+                currentMargin: 0,
+
+                // Config
+                colors: ['slate', 'red', 'orange', 'amber', 'green', 'emerald', 'teal', 'cyan', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'],
+
+                initEditor() {
+                    // Initial Template
+                    const initialHTML = `
+<div class="flex flex-col items-center justify-center min-h-[400px] p-8 bg-slate-100 text-center">
+    <div class="bg-white p-8 rounded-xl shadow-lg max-w-sm">
+        <img src="https://via.placeholder.com/100" class="w-24 h-24 rounded-full mx-auto mb-4 bg-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Hello World</h2>
+        <p class="text-gray-600 mb-6">Click any element here to edit it using the Inspector panel on the right.</p>
+        <button class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold hover:bg-blue-700 transition">
+            Get Started
+        </button>
+    </div>
+</div>`;
+                    this.sourceCode = initialHTML.trim();
+                    this.syncPreview();
+                },
+
+                // 1. Sync Source -> Preview
+                syncPreview() {
+                    const container = this.$refs.previewCanvas;
+                    container.innerHTML = this.sourceCode;
+                },
+
+                // 2. Sync DOM -> Source (Called after any inspector change)
+                updateSourceCode() {
+                    // Temporarily remove selection outline before generating HTML
+                    if (this.selectedEl) {
+                        this.selectedEl.classList.remove('editor-selected');
+                    }
+
+                    // Format HTML (Pretty print)
+                    const rawHTML = this.$refs.previewCanvas.innerHTML;
+                    this.sourceCode = this.formatHTML(rawHTML);
+
+                    // Re-add selection outline
+                    if (this.selectedEl) {
+                        this.selectedEl.classList.add('editor-selected');
+                    }
+                },
+
+                // 3. Selection Logic
+                handleSelection(e) {
+                    if (e.target === this.$refs.previewCanvas) return; // Ignore container clicks
+
+                    // Remove previous selection
+                    if (this.selectedEl) {
+                        this.selectedEl.classList.remove('editor-selected');
+                    }
+
+                    this.selectedEl = e.target;
+                    this.selectedEl.classList.add('editor-selected');
+                    this.tagName = this.selectedEl.tagName;
+
+                    // Load Data into Inspector
+                    this.scanTextNodes();
+                    this.scanAttributes();
+                    this.parseCurrentStyles();
+                },
+
+                // 4. Deep Content Scanning
+                scanTextNodes() {
+                    this.textNodes = [];
+                    if (!this.selectedEl) return;
+
+                    // Walk child nodes to find text
+                    this.selectedEl.childNodes.forEach((node, index) => {
+                        if (node.nodeType === 3 && node.nodeValue.trim().length > 0) {
+                            this.textNodes.push({
+                                index: index,
+                                text: node.nodeValue.trim(),
+                                ref: node
+                            });
+                        }
+                    });
+                },
+
+                scanAttributes() {
+                    if (this.tagName === 'IMG') {
+                        this.imgSrc = this.selectedEl.getAttribute('src') || '';
+                    }
+                },
+
+                // 5. Applying Changes
+                updateTextNode(idx, newVal) {
+                    // Update DOM directly
+                    this.textNodes[idx].ref.nodeValue = newVal;
+                    this.updateSourceCode();
+                },
+
+                updateAttr(attr, val) {
+                    this.selectedEl.setAttribute(attr, val);
+                    this.updateSourceCode();
+                },
+
+                deleteElement() {
+                    if (this.selectedEl) {
+                        this.selectedEl.remove();
+                        this.selectedEl = null;
+                        this.updateSourceCode();
+                    }
+                },
+
+                // 6. Regex Style Logic
+                applyClass(prefix, newClass) {
+                    if (!this.selectedEl) return;
+
+                    let classes = this.selectedEl.className;
+
+                    // Regex to find existing class with same prefix (e.g., 'text-', 'bg-', 'p-')
+                    // Boundary \b ensures we don't match substrings incorrectly
+                    const regex = new RegExp(`\\b${prefix}-[\\w-]+\\b`, 'g');
+
+                    if (classes.match(regex)) {
+                        // Replace existing
+                        classes = classes.replace(regex, newClass);
+                    } else {
+                        // Append new
+                        classes += ` ${newClass}`;
+                    }
+
+                    // Clean up double spaces
+                    this.selectedEl.className = classes.replace(/\s+/g, ' ').trim();
+
+                    // Update Sliders if applicable
+                    if (prefix === 'p') this.currentPadding = newClass.split('-')[1];
+                    if (prefix === 'm') this.currentMargin = newClass.split('-')[1];
+
+                    this.updateSourceCode();
+                },
+
+                // Helper: Parse current styles to update Inspector UI state
+                parseCurrentStyles() {
+                    const classes = this.selectedEl.className;
+
+                    // Extract Padding number
+                    const pMatch = classes.match(/\bp-(\d+)\b/);
+                    this.currentPadding = pMatch ? pMatch[1] : 0;
+
+                    // Extract Margin number
+                    const mMatch = classes.match(/\bm-(\d+)\b/);
+                    this.currentMargin = mMatch ? mMatch[1] : 0;
+                },
+
+                // Helper: HTML Formatter
+                formatHTML(html) {
+                    let formatted = '';
+                    let indent = 0;
+
+                    // Remove existing newlines/spaces between tags
+                    html = html.replace(/>\s+</g, '><').trim();
+
+                    // Split tags
+                    html.split(/>\s*</).forEach(function (element) {
+                        if (element.match(/^\/\w/)) {
+                            indent -= 4;
+                        }
+
+                        formatted += ' '.repeat(Math.max(0, indent)) + '<' + element + '>\n';
+
+                        if (element.match(/^<?\w[^>]*[^\/]$/) && !element.startsWith("input") && !element.startsWith("img") && !element.startsWith("br")) {
+                            indent += 4;
+                        }
+                    });
+
+                    return formatted.substring(1, formatted.length - 2); // Cleanup artifacts
+                },
+
+                copyToClipboard() {
+                    navigator.clipboard.writeText(this.sourceCode);
+                    alert('HTML copied to clipboard!');
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

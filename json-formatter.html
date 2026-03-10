@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Formatter</title>
+
+    <script src="assets/js/tailwindcss.js"></script>
+    <script src="assets/js/theme-config.js"></script>
+
+    <script defer src="assets/js/alpine.min.js"></script>
+
+    <link rel="stylesheet" href="assets/css/codemirror.min.css">
+    <link rel="stylesheet" href="assets/css/dracula.min.css">
+    <link rel="stylesheet" href="assets/css/foldgutter.min.css">
+
+
+
+    <style>
+        /* Custom overrides to make CodeMirror fill the container */
+        .CodeMirror {
+            height: auto;
+            min-height: 300px;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gray-100 dark:bg-gemini-gray-darker text-gray-800 dark:text-gemini-gray-light min-h-screen flex flex-col transition-colors duration-300">
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <div x-data="jsonFormatter()" x-init="initEditors()" class="flex flex-col">
+
+        <header
+            class="flex items-center justify-between px-6 py-3 bg-white dark:bg-gemini-gray-dark border-b border-gray-200 dark:border-gemini-gray-dark shadow-sm z-10">
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                </svg>
+                <h1 class="font-bold text-lg tracking-wide text-gray-800 dark:text-white">JSON <span
+                        class="text-primary-600 dark:text-primary-400">Formatter</span></h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-gray-500 dark:text-gray-400" x-text="statusMessage"></div>
+                <!-- Theme Toggle Button -->
+                <button @click="toggleTheme()"
+                    class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors">
+                    <!-- Sun Icon -->
+                    <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                        </path>
+                    </svg>
+                    <!-- Moon Icon -->
+                    <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 grid grid-cols-1 md:grid-cols-2 relative">
+
+            <div class="flex flex-col border-b md:border-b-0 md:border-r border-gray-200 dark:border-gemini-gray-dark">
+                <div
+                    class="bg-gray-50 dark:bg-gemini-gray-dark px-4 py-1 text-xs text-gray-500 dark:text-gray-400 font-mono border-b border-gray-200 dark:border-gemini-gray-dark">
+                    INPUT (Raw)
+                </div>
+                <div class="relative max-h-[90vh] overflow-y-auto bg-white dark:bg-gemini-gray-darker">
+                    <textarea x-ref="inputEditor"></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col">
+                <div
+                    class="flex justify-between bg-gray-50 dark:bg-gemini-gray-dark px-4 py-1 border-b border-gray-200 dark:border-gemini-gray-dark">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 font-mono self-center">OUTPUT
+                        (Formatted)</span>
+                    <button @click="copyToClipboard()"
+                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition">Copy
+                        JSON</button>
+                </div>
+                <div class="relative max-h-[90vh] overflow-y-auto">
+                    <textarea x-ref="outputEditor"></textarea>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="assets/js/codemirror.min.js"></script>
+    <script src="assets/js/codemirror-javascript.min.js"></script>
+    <script src="assets/js/matchbrackets.min.js"></script>
+    <script src="assets/js/codemirror-closebrackets.min.js"></script>
+    <script src="assets/js/codemirror-foldcode.min.js"></script>
+    <script src="assets/js/codemirror-foldgutter.min.js"></script>
+    <script src="assets/js/codemirror-bracefold.min.js"></script>
+
+
+    <script>
+        function jsonFormatter() {
+            return {
+                editorIn: null,
+                editorOut: null,
+                statusMessage: 'Ready',
+                darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
+                cmConfig: {
+                    mode: { name: "javascript", json: true },
+                    theme: "dracula",
+                    lineNumbers: true,
+                    foldGutter: true, // Enables the arrow to collapse
+                    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+                    matchBrackets: true,
+                    autoCloseBrackets: true,
+                    viewportMargin: Infinity,
+                    lineWrapping: true
+                },
+
+                initEditors() {
+                    // 1. Configure Base Settings
+                    const cmConfig = this.cmConfig
+
+                    // 2. Initialize Input Editor
+                    // Load saved input from LocalStorage
+                    const savedInput = localStorage.getItem('jsonFormatter_input');
+                    if (savedInput) {
+                        this.$refs.inputEditor.value = savedInput
+                    }
+
+                    this.editorIn = CodeMirror.fromTextArea(this.$refs.inputEditor, cmConfig);
+                    console.log(this.$refs.inputEditor);
+
+                    // 3. Initialize Output Editor (Read Only)
+                    this.editorOut = CodeMirror.fromTextArea(this.$refs.outputEditor, cmConfig);
+                    this.formatJson();
+
+                    // 4. Event Listener: Format on Change
+                    this.editorIn.on('change', () => {
+                        this.formatJson();
+                    });
+                },
+
+                toggleTheme() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
+
+                    if (this.darkMode) {
+                        document.documentElement.classList.add('dark');
+                        this.editorIn.setOption('theme', 'dracula');
+                        this.editorOut.setOption('theme', 'dracula');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        this.editorIn.setOption('theme', 'default');
+                        this.editorOut.setOption('theme', 'default');
+                    }
+                },
+
+                formatJson() {
+                    const rawValue = this.editorIn.getValue();
+
+                    if (!rawValue.trim()) {
+                        this.editorOut.setValue('');
+                        this.statusMessage = 'Waiting for input...';
+                        return;
+                    }
+
+                    try {
+                        // Parse and Stringify with 2-space indentation
+                        const parsed = JSON.parse(rawValue);
+                        const formatted = JSON.stringify(parsed, null, 2);
+
+                        this.editorOut.setValue(formatted)
+                        this.editorOut.toTextArea()
+                        this.editorOut = CodeMirror.fromTextArea(this.$refs.outputEditor, this.cmConfig);
+
+                        this.statusMessage = 'Valid JSON';
+                    } catch (e) {
+                        this.statusMessage = `Error: ${e.message}`;
+                    }
+                },
+
+                copyToClipboard() {
+                    const content = this.editorOut.getValue();
+                    if (content) {
+                        navigator.clipboard.writeText(content);
+                        const oldMsg = this.statusMessage;
+                        this.statusMessage = 'Copied to clipboard!';
+                        setTimeout(() => this.statusMessage = oldMsg, 2000);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermal Printer Test App</title>
+
+    <script src="assets/js/tailwindcss.js"></script>
+    <script src="assets/js/theme-config.js"></script>
+
+    <script defer src="assets/js/alpine.min.js"></script>
+
+    <style>
+        /* Custom Print Rules untuk memastikan browser mereset margin default */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            @page {
+                margin: 0;
+                size: 58mm auto;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <div x-data="{ 
+            width: 58, 
+            margin: 2, 
+            fontSize: 12,
+            printTest() {
+                window.print();
+            }
+        }" class="w-full h-full flex flex-col md:flex-row">
+
+        <div class="w-full md:w-80 bg-white border-r p-6 flex-shrink-0 shadow-md print:hidden overflow-y-auto z-10">
+            <h1 class="text-xl font-bold mb-6 text-primary-600">🖨️ Thermal Test Gen</h1>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lebar Kertas (mm)</label>
+                    <input type="number" x-model="width"
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-primary-500 outline-none">
+                    <div class="flex gap-2 mt-2">
+                        <button @click="width = 58"
+                            class="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">58mm</button>
+                        <button @click="width = 80"
+                            class="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">80mm</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Margin / Padding (mm)</label>
+                    <input type="range" min="0" max="20" x-model="margin"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <!-- <div class="text-right text-sm text-gray-500" x-text="margin + ' mm'"></div> -->
+                    <div class="text-right text-sm text-gray-500">
+                        <input type="number" x-model="margin"
+                            class="w-1/2 p-2 border rounded focus:ring-2 focus:ring-primary-500 outline-none"> mm
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran Font (px)</label>
+                    <input type="range" min="8" max="24" x-model="fontSize"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <!-- <div class="text-right text-sm text-gray-500" x-text="fontSize + ' px'"></div> -->
+                    <div class="text-right text-sm text-gray-500">
+                        <input type="number" x-model="fontSize"
+                            class="w-1/2 p-2 border rounded focus:ring-2 focus:ring-primary-500 outline-none"> px
+                    </div>
+                </div>
+
+                <hr class="border-gray-200 my-4">
+
+                <button @click="printTest()"
+                    class="w-full bg-primary-600 text-white py-2 px-4 rounded font-bold hover:bg-primary-700 transition shadow-lg flex items-center justify-center gap-2">
+                    <span>Cetak Test Page</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                </button>
+
+                <div class="text-xs text-gray-500 mt-4 p-3 bg-yellow-50 rounded border border-yellow-100">
+                    <strong>Note:</strong> Saat dialog print muncul, pastikan memilih ukuran kertas yang sesuai di
+                    driver printer Anda, dan matikan "Headers and footers".
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="flex-1 bg-gray-500 flex justify-center items-start p-8 overflow-y-auto print:p-0 print:bg-white print:block">
+
+            <div class="bg-white shadow-2xl text-black font-mono leading-tight print:shadow-none"
+                :style="`width: ${width}mm; padding: ${margin}mm; font-size: ${fontSize}px; min-height: 100mm;`">
+                <div class="text-center mb-4">
+                    <div class="font-bold">PRINTER TEST</div>
+                    <div class="" x-text="new Date().toLocaleString()"></div>
+                </div>
+
+                <div class="border-b-4 border-black border-dashed mb-2 pb-1">ALIGNMENT</div>
+                <div class="flex justify-between mb-2">
+                    <span>LEFT</span>
+                    <span>CENTER</span>
+                    <span>RIGHT</span>
+                </div>
+
+                <div class="border-b-4 border-black border-dashed mb-2 pb-1">DENSITY / PATTERN</div>
+                <div class="break-words mb-2 tracking-widest">
+                    ####################
+                    ////////////////////
+                    ====================
+                    --------------------
+                </div>
+
+                <div class="border-b-4 border-black border-dashed mb-2 pb-1">SETTINGS</div>
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <span>Width:</span>
+                    <span class="text-right" x-text="width + 'mm'"></span>
+                    <span>Margin:</span>
+                    <span class="text-right" x-text="margin + 'mm'"></span>
+                    <span>Font:</span>
+                    <span class="text-right" x-text="fontSize + 'px'"></span>
+                </div>
+
+                <div class="flex justify-center my-4">
+                    <div class="h-12 w-3/4 bg-black flex items-center justify-center text-white text-xs">
+                        BARCODE AREA
+                    </div>
+                </div>
+
+                <div class="text-center mt-6">
+                    <div class="">--- END OF TEST ---</div>
+                    <div class="pt-2">Alpine.js + Tailwind</div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

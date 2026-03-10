@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Transformer</title>
+    <script src="assets/js/tailwindcss.js"></script>
+    <script src="assets/js/theme-config.js"></script>
+    <script defer src="assets/js/alpine.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-200">
+
+
+    <div x-data="jsonConverter()" class="min-h-screen flex flex-col">
+
+        <nav
+            class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm transition-colors duration-200">
+            <div class="flex items-center gap-2">
+                <span class="material-icons text-indigo-600 dark:text-indigo-400">data_object</span>
+                <h1 class="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100">JSON <span
+                        class="text-indigo-600 dark:text-indigo-400">Transformer</span></h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <button @click="toggleTheme()"
+                    class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
+                    <span class="material-icons text-xl" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+                <button @click="clearAll()"
+                    class="text-xs font-semibold text-slate-400 hover:text-red-500 flex items-center gap-1 transition">
+                    <span class="material-icons text-sm">restart_alt</span> RESET ALL
+                </button>
+            </div>
+        </nav>
+
+        <main class="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <aside class="lg:col-span-3">
+                <div
+                    class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-full flex flex-col min-h-[400px] transition-colors duration-200">
+                    <div
+                        class="p-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 rounded-t-xl transition-colors duration-200">
+                        <span
+                            class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Raw
+                            JSON
+                            Input</span>
+                        <button @click="processJson()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-bold transition shadow-sm hover:shadow">
+                            TRANSFORM
+                        </button>
+                    </div>
+                    <textarea x-model="rawJson" placeholder='[{"name": "Alice", "age": 25}]'
+                        class="flex-1 p-4 font-mono text-xs focus:outline-none resize-none bg-transparent leading-relaxed text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600"></textarea>
+                    <div x-show="error" x-text="error"
+                        class="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 text-[10px] border-t border-red-100 dark:border-red-900/30 italic"
+                        x-cloak></div>
+                </div>
+            </aside>
+
+            <div class="lg:col-span-9 flex flex-col gap-6">
+
+                <div
+                    class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col transition-colors duration-200">
+                    <div
+                        class="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <button @click="addRow()"
+                                class="flex items-center gap-1 text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-2 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition border border-indigo-100 dark:border-indigo-800/50">
+                                <span class="material-icons text-sm">add</span> ROW
+                            </button>
+                            <button @click="addColumn()"
+                                class="flex items-center gap-1 text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700">
+                                <span class="material-icons text-sm">view_week</span> COLUMN
+                            </button>
+                        </div>
+
+                        <div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors">
+                            <template x-for="f in ['CSV', 'TSV', 'Markdown', 'HTML']">
+                                <button @click="exportType = f"
+                                    :class="exportType === f ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'"
+                                    class="px-4 py-1.5 rounded-md text-[10px] font-black transition uppercase tracking-tighter"
+                                    x-text="f"></button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div
+                        class="overflow-auto max-h-[40vh] custom-scrollbar bg-white dark:bg-slate-900 transition-colors duration-200">
+                        <table class="w-full text-left border-collapse min-w-full">
+                            <thead
+                                class="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700 transition-colors">
+                                <tr>
+                                    <template x-for="(header, hIndex) in headers" :key="hIndex">
+                                        <th class="px-4 py-3 group relative min-w-[120px]">
+                                            <div class="flex items-center justify-between">
+                                                <span
+                                                    class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide"
+                                                    x-text="header"></span>
+                                                <button @click="deleteColumn(header)"
+                                                    class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition">
+                                                    <span class="material-icons text-[16px]">close</span>
+                                                </button>
+                                            </div>
+                                        </th>
+                                    </template>
+                                    <th class="w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <template x-for="(row, rowIndex) in tableData" :key="rowIndex">
+                                    <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition group">
+                                        <template x-for="header in headers" :key="header">
+                                            <td class="p-1">
+                                                <input type="text" x-model="tableData[rowIndex][header]"
+                                                    class="w-full bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none rounded px-3 py-2 text-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition text-slate-700 dark:text-slate-300">
+                                            </td>
+                                        </template>
+                                        <td class="text-center px-2">
+                                            <button @click="deleteRow(rowIndex)"
+                                                class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition">
+                                                <span class="material-icons text-sm">delete</span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl shadow-lg border border-slate-800 overflow-hidden">
+                    <div class="px-4 py-3 bg-slate-800/40 flex justify-between items-center border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em]"
+                                x-text="exportType + ' Generated Output'"></span>
+                        </div>
+                        <button @click="copyToClipboard()"
+                            class="text-slate-300 hover:text-white transition flex items-center gap-2 bg-slate-700/50 px-3 py-1.5 rounded-md active:scale-95">
+                            <span class="material-icons text-sm" x-text="copyIcon">content_copy</span>
+                            <span class="text-[10px] font-bold uppercase">Copy Code</span>
+                        </button>
+                    </div>
+                    <div class="p-0">
+                        <textarea readonly
+                            class="w-full h-48 p-5 bg-transparent text-emerald-400 font-mono text-xs focus:outline-none custom-scrollbar leading-relaxed resize-none"
+                            :value="generateOutput()"></textarea>
+                    </div>
+                    <div class="px-4 py-2 bg-slate-900/80 border-t border-slate-800">
+                        <p class="text-[9px] text-slate-500 italic uppercase">Read-only preview. Changes in the table
+                            will reflect here automatically.</p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <script>
+            function jsonConverter() {
+                return {
+                    rawJson: '',
+                    tableData: [],
+                    headers: [],
+                    error: '',
+                    exportType: 'TSV',
+                    exportType: 'TSV',
+                    copyIcon: 'content_copy',
+                    darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
+
+                    init() {
+                        this.$watch('darkMode', val => {
+                            localStorage.setItem('theme', val ? 'dark' : 'light');
+                            if (val) document.documentElement.classList.add('dark');
+                            else document.documentElement.classList.remove('dark');
+                        });
+                    },
+
+                    toggleTheme() {
+                        this.darkMode = !this.darkMode;
+                    },
+
+                    processJson() {
+                        this.error = '';
+                        try {
+                            if (!this.rawJson.trim()) return;
+                            const parsed = JSON.parse(this.rawJson);
+                            const dataArray = Array.isArray(parsed) ? parsed : [parsed];
+                            if (dataArray.length > 0) {
+                                this.tableData = dataArray;
+                                this.headers = Object.keys(dataArray[0]);
+                            }
+                        } catch (e) {
+                            this.error = "Error: " + e.message;
+                        }
+                    },
+
+                    // Rows
+                    addRow() {
+                        let newRow = {};
+                        if (this.headers.length === 0) this.headers = ['column_1'];
+                        this.headers.forEach(h => newRow[h] = "");
+                        this.tableData.push(newRow);
+                    },
+                    deleteRow(idx) {
+                        this.tableData.splice(idx, 1);
+                    },
+
+                    // Columns
+                    addColumn() {
+                        const name = prompt("New Column Name:");
+                        if (name && !this.headers.includes(name)) {
+                            this.headers.push(name);
+                            this.tableData.forEach(r => r[name] = "");
+                        }
+                    },
+                    deleteColumn(hName) {
+                        if (confirm(`Remove column "${hName}"?`)) {
+                            this.headers = this.headers.filter(h => h !== hName);
+                            this.tableData.forEach(r => delete r[hName]);
+                        }
+                    },
+
+                    generateOutput() {
+                        if (this.tableData.length === 0) return '/* Data table is empty. Please import or add rows. */';
+                        const data = this.tableData;
+                        const h = this.headers;
+
+                        switch (this.exportType) {
+                            case 'CSV':
+                                return [h.join(','), ...data.map(r => h.map(k => `"${r[k] || ''}"`).join(','))].join('\n');
+                            case 'TSV':
+                                return [h.join('\t'), ...data.map(r => h.map(k => r[k] || '').join('\t'))].join('\n');
+                            case 'Markdown':
+                                const head = `| ${h.join(' | ')} |`;
+                                const divider = `| ${h.map(() => '---').join(' | ')} |`;
+                                const rows = data.map(r => `| ${h.map(k => r[k] || '').join(' | ')} |`).join('\n');
+                                return `${head}\n${divider}\n${rows}`;
+                            case 'HTML':
+                                let html = '<table>\n <thead>\n  <tr>';
+                                h.forEach(col => html += `   <th>${col}</th>\n`);
+                                html += '  </tr>\n </thead>\n <tbody>\n';
+                                data.forEach(r => {
+                                    html += '  <tr>\n';
+                                    h.forEach(col => html += `   <td>${r[col] || ''}</td>\n`);
+                                    html += '  </tr>\n';
+                                });
+                                return html + ' </tbody>\n</table>';
+                            default: return '';
+                        }
+                    },
+
+                    copyToClipboard() {
+                        const text = this.generateOutput();
+                        navigator.clipboard.writeText(text).then(() => {
+                            this.copyIcon = 'done';
+                            setTimeout(() => this.copyIcon = 'content_copy', 2000);
+                        });
+                    },
+
+                    clearAll() {
+                        if (confirm("Are you sure you want to reset the entire workspace?")) {
+                            this.rawJson = '';
+                            this.tableData = [];
+                            this.headers = [];
+                            this.error = '';
+                        }
+                    }
+                }
+            }
+        </script>
+    </div>
+</body>
+
+</html>

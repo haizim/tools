@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Alpine HTML Tool</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.9/beautify-html.min.js"></script>
+
+    <style>
+        /* Custom overrides to make CodeMirror fit the Tailwind flex container */
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans antialiased" x-data="appData()">
+
+    <header class="flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
+        <div class="flex items-center gap-2">
+            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+            </svg>
+            <h1 class="text-xl font-bold tracking-wide">HTML <span class="text-cyan-400">Formatter</span></h1>
+        </div>
+
+        <div class="flex gap-3">
+            <button @click="formatCode()"
+                class="px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 rounded transition shadow-lg hover:shadow-cyan-500/20">
+                Format
+            </button>
+            <button @click="minifyCode()"
+                class="px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-500 rounded transition shadow-lg hover:shadow-purple-500/20">
+                Minify
+            </button>
+            <button @click="copyToClipboard()" x-text="copyBtnText"
+                class="px-4 py-2 text-sm font-semibold bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded transition min-w-[80px]">
+                Copy
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <div class="w-full h-full relative">
+            <textarea x-ref="editorArea"></textarea>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 px-6 py-2 text-xs text-gray-500 flex justify-between border-t border-gray-700">
+        <span>Powered by Alpine.js & CodeMirror</span>
+        <span x-text="statusMsg">Ready</span>
+    </footer>
+
+    <script>
+        function appData() {
+            return {
+                editor: null,
+                copyBtnText: 'Copy',
+                statusMsg: 'Ready to edit',
+                cmConfig: {
+                    mode: 'htmlmixed',
+                    theme: 'dracula',
+                    lineNumbers: true,
+                    lineWrapping: true,
+                    autofocus: true,
+                    tabSize: 2
+                },
+
+                init() {
+                    // Initialize CodeMirror on the textarea ref
+                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
+
+                    // Set default demo content
+                    const demo = `<div class="container"><h1>Hello World</h1><p>This is a    messy   HTML string.</p></div>`;
+                    this.editor.setValue(demo);
+                    this.editor.toTextArea()
+                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
+
+                    // Update status on change
+                    this.editor.on('change', () => {
+                        this.statusMsg = `Chars: ${this.editor.getValue().length}`;
+                    });
+                },
+
+                formatCode() {
+                    const raw = this.editor.getValue();
+                    if (!raw.trim()) return;
+
+                    // Use js-beautify library
+                    const formatted = html_beautify(raw, {
+                        indent_size: 2,
+                        wrap_line_length: 80,
+                        preserve_newlines: true
+                    });
+
+                    this.editor.setValue(formatted);
+                    this.editor.toTextArea()
+                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
+                    this.statusMsg = 'Formatted successfully';
+                },
+
+                minifyCode() {
+                    const raw = this.editor.getValue();
+                    if (!raw.trim()) return;
+
+                    // Simple Regex-based minification for "Mini" app context
+                    // 1. Remove new lines
+                    // 2. Remove whitespace between tags
+                    // 3. Collapse multiple spaces
+                    let minified = raw
+                        .replace(/\n/g, "")
+                        .replace(/[\t ]+\</g, "<")
+                        .replace(/\>[\t ]+\</g, "><")
+                        .replace(/\>[\t ]+$/g, ">")
+                        .replace(/\s{2,}/g, ' ');
+
+                    this.editor.setValue(minified);
+                    this.editor.toTextArea()
+                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
+                    this.statusMsg = 'Minified successfully';
+                },
+
+                async copyToClipboard() {
+                    try {
+                        await navigator.clipboard.writeText(this.editor.getValue());
+                        this.copyBtnText = 'Copied!';
+                        this.statusMsg = 'Copied to clipboard';
+                        setTimeout(() => this.copyBtnText = 'Copy', 2000);
+                    } catch (err) {
+                        this.statusMsg = 'Failed to copy';
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
