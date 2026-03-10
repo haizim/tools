@@ -4,539 +4,503 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wavespeed Image Editor (IDB)</title>
-
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
-
+    <title>WaveSpeed Client</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        gray: {
-                            750: '#2d3342',
-                            850: '#1a202c',
-                            950: '#0d1117',
-                        }
+                        primary: '#3b82f6',
+                        darkBg: '#111827',
+                        darkCard: '#1f2937'
                     }
                 }
             }
         }
     </script>
-
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
-    <style>
-        [x-cloak] {
-            display: none !important;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #1a202c;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #4a5568;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #718096;
-        }
-    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 
-<body
-    class="bg-gray-950 text-gray-200 font-sans antialiased h-screen overflow-hidden selection:bg-indigo-500 selection:text-white"
-    x-data="app()" x-init="initApp()">
+<body x-data="imageEditorApp()"
+    class="bg-gray-50 dark:bg-darkBg text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-200 antialiased">
 
-    <nav class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6 z-20 relative">
-        <div class="flex items-center space-x-2">
-            <span class="material-icons text-indigo-500">waves</span>
-            <h1 class="text-xl font-bold tracking-tight">Wavespeed <span class="text-indigo-400">Gen</span> <span
-                    class="text-xs text-gray-500 font-normal ml-2 border border-gray-700 rounded px-2 py-0.5">IndexedDB</span>
-            </h1>
-        </div>
-
-        <div class="flex items-center space-x-4">
-            <button @click="showHistory = !showHistory"
-                class="md:hidden p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400">
-                <span class="material-icons" x-text="showHistory ? 'close' : 'history'"></span>
-            </button>
-            <button @click="showSettings = !showSettings"
-                class="p-2 hover:bg-gray-800 rounded-lg transition-colors relative">
-                <span class="material-icons text-gray-400">settings</span>
-                <span x-show="!apiKey"
-                    class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-            </button>
-        </div>
-    </nav>
-
-    <div class="flex h-[calc(100vh-64px)] relative">
-
-        <!-- Mobile Backdrop -->
-        <div x-show="showHistory" x-transition.opacity class="absolute inset-0 bg-black/50 z-20 md:hidden"
-            @click="showHistory = false"></div>
-
-        <aside
-            class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col z-30 absolute h-full md:static transition-transform duration-300 transform"
-            :class="showHistory ? 'translate-x-0' : '-translate-x-full md:translate-x-0'">
-            <div class="p-4 border-b border-gray-800 flex justify-between items-center">
-                <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                    History
-                    <span class="bg-gray-800 text-gray-500 text-[10px] px-2 py-0.5 rounded-full"
-                        x-text="history.length"></span>
-                </h2>
-                <button @click="clearHistoryDB()" class="text-xs text-red-400 hover:text-red-300 hover:underline">Clear
-                    All</button>
+    <header class="bg-white dark:bg-darkCard shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="material-icons text-primary">auto_fix_high</span>
+                <h1 class="font-bold text-lg tracking-wide">WaveSpeed Client</h1>
             </div>
-
-            <div class="flex-1 overflow-y-auto p-2 space-y-2">
-                <div x-show="isLoadingHistory" class="p-4 text-center text-gray-500 text-xs">
-                    <span class="material-icons animate-spin text-sm mb-2">sync</span>
-                    <p>Loading DB...</p>
+            <div class="flex items-center space-x-4">
+                <div x-show="balance !== null"
+                    class="hidden sm:flex items-center text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full">
+                    <span class="material-icons text-sm mr-1">account_balance_wallet</span>
+                    $<span x-text="balance"></span>
                 </div>
 
-                <template x-for="item in history" :key="item.id">
-                    <div
-                        class="p-3 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-750 transition-colors group border border-transparent hover:border-gray-600 relative">
-                        <button @click.stop="deleteHistoryItem(item.id)"
-                            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity">
-                            <span class="material-icons text-sm">close</span>
-                        </button>
+                <div class="flex items-center space-x-1">
+                    <button @click="isDark = !isDark"
+                        class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                        title="Toggle Dark Mode">
+                        <span class="material-icons" x-text="isDark ? 'light_mode' : 'dark_mode'"></span>
+                    </button>
 
-                        <div @click="loadFromHistory(item)">
-                            <div class="flex items-center space-x-3 mb-2">
-                                <div class="relative">
-                                    <template x-if="item.inputThumbnail">
-                                        <img :src="item.inputThumbnail"
-                                            class="w-10 h-10 rounded object-cover border border-gray-600 bg-gray-900">
-                                    </template>
-                                    <template x-if="!item.inputThumbnail">
-                                        <div
-                                            class="w-10 h-10 rounded bg-gray-900 border border-gray-700 flex items-center justify-center">
-                                            <span class="material-icons text-xs text-gray-600">text_fields</span>
-                                        </div>
-                                    </template>
-                                    <div
-                                        class="absolute -bottom-1 -right-1 bg-gray-700 text-[8px] px-1 rounded text-gray-300">
-                                        IN</div>
-                                </div>
-                                <span class="material-icons text-gray-600 text-sm">arrow_right_alt</span>
-                                <div class="relative">
-                                    <template x-if="item.outputUrl">
-                                        <img :src="item.outputUrl"
-                                            class="w-10 h-10 rounded object-cover border border-indigo-500/50 bg-gray-900">
-                                    </template>
-                                    <template x-if="!item.outputUrl">
-                                        <div class="w-10 h-10 rounded bg-gray-700 flex items-center justify-center">
-                                            <span class="material-icons text-xs text-gray-500">block</span>
-                                        </div>
-                                    </template>
-                                    <div
-                                        class="absolute -bottom-1 -right-1 bg-indigo-900 text-[8px] px-1 rounded text-indigo-200">
-                                        OUT</div>
-                                </div>
-                            </div>
-                            <p class="text-xs text-gray-300 line-clamp-2" x-text="item.prompt"></p>
-                            <div class="flex justify-between items-center mt-2">
-                                <span class="text-[10px] text-gray-500"
-                                    x-text="new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></span>
-                                <span class="text-[10px] text-gray-600 truncate max-w-[80px]"
-                                    x-text="item.model"></span>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-
-                <div x-show="!isLoadingHistory && history.length === 0" class="text-center py-10 opacity-50">
-                    <span class="material-icons text-4xl text-gray-700 mb-2">history</span>
-                    <p class="text-xs text-gray-500">No edits saved yet.</p>
+                    <button @click="showConfig = true"
+                        class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                        <span class="material-icons">settings</span>
+                    </button>
                 </div>
             </div>
-        </aside>
+        </div>
+    </header>
 
-        <main class="flex-1 flex flex-col relative bg-gray-950">
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-            <div x-show="showSettings" x-transition.opacity
-                class="absolute inset-0 bg-gray-950/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                <div @click.away="showSettings = false"
-                    class="bg-gray-900 border border-gray-700 w-full max-w-lg rounded-xl shadow-2xl p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-bold">Client Settings</h3>
-                        <button @click="showSettings = false" class="text-gray-400 hover:text-white"><span
-                                class="material-icons">close</span></button>
-                    </div>
+            <div class="lg:col-span-4 space-y-6">
+
+                <div
+                    class="bg-white dark:bg-darkCard rounded-xl shadow-sm p-5 border border-gray-200 dark:border-gray-700">
+                    <h2 class="font-semibold text-md mb-4 flex items-center">
+                        <span class="material-icons mr-2 text-gray-500">image</span> Base Image
+                    </h2>
 
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-semibold text-gray-400 mb-1">Wavespeed API Key (Saved in
-                                LocalStorage)</label>
-                            <input type="password" x-model="apiKey" @change="saveSettings()"
-                                class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:border-indigo-500 focus:outline-none placeholder-gray-600"
-                                placeholder="ws-...">
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Image
+                                URL</label>
+                            <input type="url" x-model="imageUrl" placeholder="https://..."
+                                class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
                         </div>
+
+                        <div class="flex items-center justify-center">
+                            <span class="text-xs text-gray-400">OR</span>
+                        </div>
+
                         <div>
-                            <label class="block text-xs font-semibold text-gray-400 mb-1">Model ID</label>
-                            <div class="flex space-x-2">
-                                <select x-model="selectedModel" @change="saveSettings()"
-                                    class="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:border-indigo-500 focus:outline-none">
-                                    <template x-for="model in models" :key="model.id">
-                                        <option :value="model.id" x-text="model.name || model.id"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <input type="text" x-model="selectedModel" @change="saveSettings()"
-                                class="w-full mt-2 bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:border-indigo-500 focus:outline-none"
-                                placeholder="Custom Model ID...">
-                            <p class="text-xs text-gray-500 mt-1">
-                                Selected: <b x-text="selectedModel"></b>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex-1 flex flex-col lg:flex-row p-6 gap-6 overflow-y-auto">
-
-                <div class="flex-1 flex flex-col space-y-4 min-w-0">
-                    <div class="flex items-center space-x-2">
-                        <span
-                            class="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-indigo-400">1</span>
-                        <h3 class="font-medium text-gray-300">Input</h3>
-                    </div>
-
-                    <div class="relative group flex-shrink-0">
-                        <div class="border-2 border-dashed border-gray-700 rounded-xl bg-gray-900 h-72 flex flex-col items-center justify-center transition-all duration-200"
-                            :class="{'border-indigo-500 bg-gray-800/50 ring-4 ring-indigo-500/10': isDragging}"
-                            @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
-                            @drop.prevent="handleDrop($event)">
-
-                            <template x-if="!inputImage">
-                                <div class="text-center p-4 pointer-events-none">
-                                    <span
-                                        class="material-icons text-5xl text-gray-700 mb-3 group-hover:text-indigo-500 transition-colors">cloud_upload</span>
-                                    <p class="text-sm text-gray-400 font-medium">Drop image here (Optional)</p>
-                                    <p class="text-xs text-gray-600 mt-1">Supports JPG, PNG</p>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Upload Local
+                                Image</label>
+                            <div class="relative">
+                                <input type="file" accept="image/*" @change="handleUpload"
+                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    :disabled="isUploading">
+                                <div class="w-full bg-gray-50 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-3 text-sm text-center flex items-center justify-center transition"
+                                    :class="isUploading ? 'opacity-50' : 'hover:bg-gray-100 dark:hover:bg-gray-700'">
+                                    <span class="material-icons mr-2 text-gray-500"
+                                        x-text="isUploading ? 'hourglass_top' : 'cloud_upload'"></span>
+                                    <span x-text="isUploading ? 'Uploading to WaveSpeed...' : 'Click to Upload'"></span>
                                 </div>
-                            </template>
-
-                            <template x-if="inputImage">
-                                <div class="relative w-full h-full p-2 group-image">
-                                    <img :src="inputImage" class="w-full h-full object-contain rounded-lg">
-                                    <button @click="inputImage = null; inputParams.file = null"
-                                        class="absolute top-4 right-4 bg-gray-900/80 text-white rounded-lg p-2 hover:bg-red-500 transition-colors shadow-lg backdrop-blur-sm">
-                                        <span class="material-icons text-sm">delete</span>
-                                    </button>
-                                </div>
-                            </template>
-
-                            <input type="file" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer"
-                                @change="handleFileSelect($event)">
-                        </div>
-                    </div>
-
-                    <select x-model="aspectRatio"
-                        class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:border-indigo-500 focus:outline-none">
-                        <template x-for="ar in aspectRatioOptions">
-                            <option :value="ar.value" x-text="ar.label"></option>
-                        </template>
-                    </select>
-
-                    <div class="flex-1 flex flex-col min-h-0">
-                        <textarea x-model="prompt"
-                            class="w-full h-32 bg-gray-900 border border-gray-700 rounded-xl p-4 focus:border-indigo-500 focus:outline-none resize-none text-sm leading-relaxed"
-                            placeholder="Describe your image..."></textarea>
-
-                        <div class="mt-4 flex items-center justify-between">
-                            <div class="text-xs text-gray-500 flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full" :class="db ? 'bg-green-500' : 'bg-red-500'"></span>
-                                <span x-text="db ? 'DB Ready' : 'DB Offline'"></span>
                             </div>
-                            <button @click="generateByTask()"
-                                :disabled="isGenerating || isUploading || !prompt || !apiKey"
-                                class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-2.5 rounded-lg font-medium shadow-lg shadow-indigo-500/20 flex items-center space-x-2 transition-all">
-                                <span x-show="isGenerating || isUploading"
-                                    class="material-icons animate-spin text-sm">refresh</span>
-                                <span x-text="buttonText"></span>
+                        </div>
+
+                        <div x-show="imageUrl"
+                            class="mt-4 relative rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 h-32 flex items-center justify-center overflow-hidden"
+                            style="display: none;" x-transition>
+                            <img :src="imageUrl" alt="Input Preview" class="max-h-full max-w-full object-contain"
+                                @error="imageUrl = ''">
+                            <button @click="imageUrl = ''"
+                                class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white p-1 rounded-full backdrop-blur transition"
+                                title="Clear Image">
+                                <span class="material-icons text-[14px]">close</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex-1 flex flex-col space-y-4 min-w-0">
-                    <div class="flex items-center space-x-2">
-                        <span
-                            class="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-green-400">2</span>
-                        <h3 class="font-medium text-gray-300">Result</h3>
+                <div
+                    class="bg-white dark:bg-darkCard rounded-xl shadow-sm p-5 border border-gray-200 dark:border-gray-700">
+                    <h2 class="font-semibold text-md mb-4 flex items-center">
+                        <span class="material-icons mr-2 text-gray-500">tune</span> Parameters
+                    </h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label
+                                class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Prompt</label>
+                            <textarea x-model="prompt" rows="3" placeholder="Describe how to edit the image..."
+                                class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none resize-none"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Output
+                                Size</label>
+                            <select x-model="presetSize" @change="updateDimensions"
+                                class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+                                <template x-for="preset in presetSizes" :key="preset">
+                                    <option :value="preset" x-text="preset"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label
+                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Width</label>
+                                <input type="number" x-model="width"
+                                    class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Height</label>
+                                <input type="number" x-model="height"
+                                    class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button @click="generateImage" :disabled="isGenerating || isUploading"
+                    class="w-full bg-primary hover:bg-blue-600 text-white font-medium py-3 rounded-xl shadow-sm transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span class="material-icons mr-2" x-show="!isGenerating">brush</span>
+                    <span class="material-icons mr-2 animate-spin" x-show="isGenerating">autorenew</span>
+                    <span x-text="isGenerating ? 'Generating...' : 'Generate Image'"></span>
+                    <span x-show="!isGenerating && getSelectedModelPrice() !== null"
+                        class="ml-1 opacity-80 text-sm font-normal" x-text="`($${getSelectedModelPrice()})`"></span>
+                </button>
+
+                <div x-show="errorMessage"
+                    class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-start"
+                    style="display: none;">
+                    <span class="material-icons mr-2 text-sm mt-0.5">error</span>
+                    <span x-text="errorMessage"></span>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 flex flex-col">
+                <div
+                    class="bg-white dark:bg-darkCard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex-1 min-h-[400px] flex items-center justify-center relative overflow-hidden p-4">
+
+                    <div x-show="!outputImage && !isGenerating" class="text-center text-gray-400">
+                        <span class="material-icons text-6xl mb-2 opacity-50">wallpaper</span>
+                        <p>Output will appear here</p>
                     </div>
 
-                    <div
-                        class="flex-1 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center relative overflow-hidden min-h-[400px]">
-                        <div x-show="!outputImage && !isGenerating && !isUploading" class="text-center text-gray-600">
-                            <span class="material-icons text-4xl mb-2 opacity-30">auto_awesome</span>
-                            <p class="text-sm">AI Output Area</p>
-                        </div>
+                    <div x-show="isGenerating" class="text-center text-primary">
+                        <span class="material-icons text-6xl mb-2 animate-spin">autorenew</span>
+                        <p class="animate-pulse">Processing via WaveSpeed...</p>
+                    </div>
 
-                        <div x-show="isGenerating || isUploading" class="text-center">
-                            <div
-                                class="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4">
-                            </div>
-                            <p class="text-sm text-indigo-400 font-medium animate-pulse" x-text="statusText"></p>
-                        </div>
+                    <img x-show="outputImage && !isGenerating" :src="outputImage" alt="Generated Output"
+                        class="max-w-full max-h-[700px] object-contain rounded-lg shadow-sm" style="display: none;">
 
-                        <template x-if="outputImage">
-                            <div class="w-full h-full flex flex-col">
-                                <div class="flex-1 p-2 flex items-center justify-center bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]"
-                                    style="overflow: scroll;">
-                                    <img :src="outputImage" class="max-w-full max-h-full rounded-lg shadow-2xl">
-                                </div>
-                                <div
-                                    class="p-4 bg-gray-850 border-t border-gray-800 flex justify-end items-center gap-3">
-                                    <a :href="outputImage" :download="'img-' + imgName + '.png'" target="_blank"
-                                        class="flex items-center space-x-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg transition-colors shadow-lg">
-                                        <span class="material-icons text-sm">download</span>
-                                        <span>Download</span>
-                                    </a>
-                                </div>
-                            </div>
-                        </template>
+                    <div x-show="outputImage && !isGenerating" class="absolute top-4 right-4 flex space-x-2"
+                        style="display: none;">
+
+                        <button @click="downloadOutput" :disabled="isDownloading"
+                            class="bg-gray-900/70 hover:bg-gray-900 text-white p-2 rounded-full backdrop-blur transition flex items-center justify-center disabled:opacity-50"
+                            title="Download Image">
+                            <span class="material-icons text-sm" x-show="!isDownloading">download</span>
+                            <span class="material-icons text-sm animate-spin" x-show="isDownloading"
+                                style="display: none;">sync</span>
+                        </button>
+
+                        <a :href="outputImage" target="_blank"
+                            class="bg-gray-900/70 hover:bg-gray-900 text-white p-2 rounded-full backdrop-blur transition flex items-center justify-center"
+                            title="Open Original">
+                            <span class="material-icons text-sm">open_in_new</span>
+                        </a>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
+
+        <div class="mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-lg flex items-center">
+                    <span class="material-icons mr-2">history</span> History
+                </h2>
+                <div class="flex space-x-2">
+                    <button @click="showHistory = !showHistory"
+                        class="text-sm text-gray-500 hover:text-primary transition"
+                        x-text="showHistory ? 'Hide' : 'Show'"></button>
+                    <button @click="history = []" x-show="history.length > 0"
+                        class="text-sm text-red-500 hover:text-red-600 transition">Clear</button>
+                </div>
+            </div>
+
+            <div x-show="showHistory" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" x-transition>
+                <template x-for="(item, index) in history" :key="index">
+                    <div class="bg-white dark:bg-darkCard rounded-lg shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-primary transition cursor-pointer group"
+                        @click="loadHistoryItem(item)">
+                        <div class="aspect-square bg-gray-100 dark:bg-gray-800 relative">
+                            <img :src="item.output" class="w-full h-full object-cover">
+                            <div
+                                class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                                <span class="text-white text-xs font-medium">Load</span>
+                            </div>
+                        </div>
+                        <div class="p-2">
+                            <p class="text-xs truncate dark:text-gray-300" x-text="item.prompt" :title="item.prompt">
+                            </p>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="history.length === 0" class="col-span-full py-8 text-center text-gray-400 text-sm">
+                    No history yet. Start generating!
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div x-show="showConfig" style="display: none;"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white dark:bg-darkCard w-full max-w-md rounded-2xl shadow-xl p-6 relative border border-gray-200 dark:border-gray-700"
+            @click.outside="showConfig = false">
+            <button @click="showConfig = false"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <span class="material-icons">close</span>
+            </button>
+
+            <h3 class="text-xl font-bold mb-4">API Configuration</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Set up your WaveSpeed AI credentials and defaults.
+            </p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">API Key</label>
+                    <input type="password" x-model="apiKey" placeholder="sk-..."
+                        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:outline-none">
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-medium">Image-to-Image Model</label>
+                        <button @click="fetchModels()" :disabled="isLoadingModels"
+                            class="text-xs font-semibold text-primary hover:underline flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span class="material-icons text-[14px] mr-1"
+                                :class="{'animate-spin': isLoadingModels}">sync</span>
+                            <span x-text="isLoadingModels ? 'Scanning...' : 'Scan Models'"></span>
+                        </button>
+                    </div>
+
+                    <select x-model="modelId"
+                        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:outline-none truncate">
+                        <template x-for="model in availableModels" :key="model.id">
+                            <option :value="model.id"
+                                x-text="model.price !== null && model.price !== undefined ? `${model.name} ($${parseFloat(model.price).toFixed(3)})` : model.name">
+                            </option>
+                        </template>
+                    </select>
+
+                    <p x-show="fetchError" class="text-xs text-red-500 mt-1" x-text="fetchError"></p>
+                    <p class="text-xs text-gray-500 mt-1" x-show="!fetchError">Filtered dynamically from WaveSpeed API
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-center justify-between">
+                <button @click="checkBalance" class="text-sm text-primary hover:underline flex items-center">
+                    <span class="material-icons mr-1 text-[16px]">refresh</span> Check Balance
+                </button>
+                <button @click="saveConfig"
+                    class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-2 rounded-lg font-medium hover:opacity-90 transition">
+                    Save Config
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
-        const DB_NAME = 'Wavespeed_ImageEditor_DB';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'history';
-
-        function app() {
+        function imageEditorApp() {
             return {
-                // Config
-                apiKey: '',
-                models: [
-                    { "id": "flux-dev", "name": "Flux Dev" },
-                    { "id": "flux-schnell", "name": "Flux Schnell" }, // Based on common Wavespeed models
-                    { "id": "bytedance-seed/seedream-4.5", "name": "Seedream 4.5" }
-                    // Add more if known
-                ],
-                selectedModel: 'flux-dev',
+                // UI & Preferences
+                isDark: localStorage.getItem('theme') === 'dark',
+                showConfig: !localStorage.getItem('ws_api_key'),
+                showHistory: true,
 
-                // State
-                db: null, // IndexedDB Instance
-                isLoadingHistory: true,
-                showHistory: false,
-                showSettings: false,
-                isGenerating: false,
-                isUploading: false,
-                isDragging: false,
-                statusText: 'Processing...',
+                // Config Data
+                apiKey: localStorage.getItem('ws_api_key') || '',
+                modelId: localStorage.getItem('ws_model_id') || 'wavespeed-ai/flux-2-turbo/edit',
+                availableModels: JSON.parse(localStorage.getItem('ws_models') || '[]').length > 0
+                    ? JSON.parse(localStorage.getItem('ws_models'))
+                    : [
+                        { id: 'wavespeed-ai/flux-2-turbo/edit', name: 'FLUX 2 Turbo Edit', price: null },
+                        { id: 'wavespeed-ai/qwen-image-edit', name: 'Qwen Image Edit', price: null }
+                    ],
+                balance: null,
 
-                // Data
-                inputImage: null, // Data URL for display
-                inputParams: {
-                    file: null // Actual File object for upload
-                },
+                // API State
+                isLoadingModels: false,
+                fetchError: '',
+
+                // Form State
+                imageUrl: '',
                 prompt: '',
-                outputImage: null,
-                history: [],
-                aspectRatio: '9:16',
-                aspectRatioOptions: [
-                    { value: '1*1', label: '1:1' },
-                    { value: '2*3', label: '2:3' },
-                    { value: '3*2', label: '3:2' },
-                    { value: '3*4', label: '3:4' },
-                    { value: '4*3', label: '4:3' },
-                    { value: '4*5', label: '4:5' },
-                    { value: '5*4', label: '5:4' },
-                    { value: '9*16', label: '9:16' },
-                    { value: '16*9', label: '16:9' },
-                    { value: '21*9', label: '21:9' },
-                ],
-                // Note: Wavespeed uses "W*H" string format for size in some examples, assume mapping here.
-                // Wait, the new example showed "1024*1024". I'll use that format.
+                presetSize: '1440x2560',
+                presetSizes: ['2048x2048', '2560x1440', '1440x2560', '2304x1728', '1728x2304', '2432x1664', '1664x2432', '2560x1600', '1600x2560', '2880x1800', '1800x2880'],
+                width: 1440,
+                height: 2560,
 
-                imgName: '',
+                // Execution State
+                isUploading: false,
+                isGenerating: false,
+                isDownloading: false,
+                outputImage: '',
+                resultId: '', // Added to store task id for download
+                errorMessage: '',
 
-                get buttonText() {
-                    if (this.isUploading) return 'Uploading...';
-                    if (this.isGenerating) return 'Generating...';
-                    return 'Generate Image';
+                // Storage
+                history: JSON.parse(localStorage.getItem('ws_history') || '[]'),
+
+                init() {
+                    if (this.isDark) document.documentElement.classList.add('dark');
+                    else document.documentElement.classList.remove('dark');
+
+                    this.$watch('isDark', val => {
+                        localStorage.setItem('theme', val ? 'dark' : 'light');
+                        if (val) document.documentElement.classList.add('dark');
+                        else document.documentElement.classList.remove('dark');
+                    });
+                    this.$watch('history', val => {
+                        localStorage.setItem('ws_history', JSON.stringify(val));
+                    });
+                    if (this.apiKey) this.checkBalance();
                 },
 
-                initApp() {
-                    // 1. Load Settings from LocalStorage
-                    this.apiKey = localStorage.getItem('ws_api_key') || '';
-                    this.selectedModel = localStorage.getItem('ws_selected_model') || this.selectedModel;
+                updateDimensions() {
+                    const [w, h] = this.presetSize.split('x');
+                    this.width = parseInt(w);
+                    this.height = parseInt(h);
+                },
 
-                    // 2. Initialize IndexedDB
-                    this.initDB();
+                // Helper to extract the base_price of the selected model for the UI
+                getSelectedModelPrice() {
+                    const model = this.availableModels.find(m => m.id === this.modelId);
+                    return (model && model.price !== undefined && model.price !== null) ? parseFloat(model.price).toFixed(3) : null;
+                },
 
+                // Scan API for Models and Sort Alphabetically, saving base_price
+                async fetchModels() {
                     if (!this.apiKey) {
-                        this.showSettings = true;
+                        this.fetchError = 'API key required to scan models.';
+                        return;
                     }
-                },
 
-                // --- IndexedDB Logic (Identical to OpenRouter version, just different DB Name) ---
-                initDB() {
-                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    this.isLoadingModels = true;
+                    this.fetchError = '';
 
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains(STORE_NAME)) {
-                            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                    try {
+                        const res = await fetch('https://api.wavespeed.ai/api/v3/models', {
+                            method: 'GET',
+                            headers: { 'Authorization': `Bearer ${this.apiKey}` }
+                        });
+
+                        const data = await res.json();
+
+                        if (data.code === 200 && data.data) {
+                            const i2iModels = data.data.filter(m =>
+                                m.type === 'image-to-image' ||
+                                m.model_id.includes('edit')
+                            );
+
+                            if (i2iModels.length > 0) {
+                                // Add price mapping to model cache
+                                this.availableModels = i2iModels.map(m => ({
+                                    id: m.model_id,
+                                    name: m.name || m.model_id,
+                                    price: m.base_price
+                                })).sort((a, b) => a.name.localeCompare(b.name));
+
+                                localStorage.setItem('ws_models', JSON.stringify(this.availableModels));
+
+                                if (!this.availableModels.find(m => m.id === this.modelId)) {
+                                    this.modelId = this.availableModels[0].id;
+                                }
+                            } else {
+                                this.fetchError = 'No image-to-image models found.';
+                            }
+                        } else {
+                            this.fetchError = data.message || 'Failed to retrieve models.';
                         }
-                    };
-
-                    request.onsuccess = (event) => {
-                        this.db = event.target.result;
-                        this.loadHistoryFromDB();
-                    };
-
-                    request.onerror = (event) => {
-                        console.error("IndexedDB Error:", event.target.error);
-                        this.isLoadingHistory = false;
-                    };
-                },
-
-                loadHistoryFromDB() {
-                    if (!this.db) return;
-                    this.isLoadingHistory = true;
-                    const transaction = this.db.transaction([STORE_NAME], 'readonly');
-                    const store = transaction.objectStore(STORE_NAME);
-                    const request = store.getAll();
-
-                    request.onsuccess = () => {
-                        this.history = request.result.sort((a, b) => b.id - a.id);
-                        this.isLoadingHistory = false;
-                    };
-
-                    request.onerror = () => this.isLoadingHistory = false;
-                },
-
-                addHistoryToDB(item) {
-                    if (!this.db) return;
-                    const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-                    const store = transaction.objectStore(STORE_NAME);
-                    const request = store.add(item);
-
-                    request.onsuccess = (event) => {
-                        item.id = event.target.result;
-                        this.history.unshift(item);
-                    };
-                },
-
-                deleteHistoryItem(id) {
-                    if (!this.db || !confirm('Delete this item?')) return;
-                    const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-                    const store = transaction.objectStore(STORE_NAME);
-                    store.delete(id);
-                    transaction.oncomplete = () => {
-                        this.history = this.history.filter(h => h.id !== id);
-                    };
-                },
-
-                clearHistoryDB() {
-                    if (!this.db || !confirm('Permanently clear all history?')) return;
-                    const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-                    const store = transaction.objectStore(STORE_NAME);
-                    store.clear();
-                    transaction.oncomplete = () => {
-                        this.history = [];
-                    };
-                },
-                // --- End IndexedDB Logic ---
-
-                saveSettings() {
-                    localStorage.setItem('ws_api_key', this.apiKey);
-                    localStorage.setItem('ws_selected_model', this.selectedModel);
-                },
-
-                // Drag & Drop
-                handleFileSelect(e) {
-                    const file = e.target.files[0];
-                    if (file) this.processFile(file);
-                },
-                handleDrop(e) {
-                    this.isDragging = false;
-                    const file = e.dataTransfer.files[0];
-                    if (file && file.type.startsWith('image/')) {
-                        this.processFile(file);
+                    } catch (e) {
+                        this.fetchError = 'Network error fetching models.';
+                        console.error(e);
+                    } finally {
+                        this.isLoadingModels = false;
                     }
                 },
-                processFile(file) {
-                    this.inputParams.file = file; // Store actual file for upload
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.inputImage = e.target.result; // Store Data URL for preview
-                        this.outputImage = null;
-                    };
-                    reader.readAsDataURL(file);
+
+                saveConfig() {
+                    if (!this.apiKey) return alert("API Key is required.");
+                    localStorage.setItem('ws_api_key', this.apiKey);
+                    localStorage.setItem('ws_model_id', this.modelId);
+                    this.showConfig = false;
+                    this.checkBalance();
                 },
 
-                // --- Wavespeed API Logic ---
+                async checkBalance() {
+                    if (!this.apiKey) return;
+                    try {
+                        const res = await fetch('https://api.wavespeed.ai/api/v3/balance', {
+                            headers: { 'Authorization': `Bearer ${this.apiKey}` }
+                        });
+                        const data = await res.json();
+                        if (data.code === 200) {
+                            this.balance = parseFloat(data.data.balance).toFixed(2);
+                        }
+                    } catch (e) {
+                        console.error('Balance check failed:', e);
+                    }
+                },
 
-                async uploadImage(file) {
+                async handleUpload(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (!this.apiKey) {
+                        this.showConfig = true;
+                        return;
+                    }
                     this.isUploading = true;
-                    this.statusText = 'Uploading image...';
+                    this.errorMessage = '';
+
                     const formData = new FormData();
                     formData.append('file', file);
 
                     try {
-                        const response = await fetch('https://api.wavespeed.ai/api/v3/media/upload/binary', {
+                        const res = await fetch('https://api.wavespeed.ai/api/v3/media/upload/binary', {
                             method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${this.apiKey}`
-                            },
+                            headers: { 'Authorization': `Bearer ${this.apiKey}` },
                             body: formData
                         });
-
-                        const data = await response.json();
-                        if (!response.ok) throw new Error(data.message || 'Upload failed');
-                        return data.data.download_url;
+                        const data = await res.json();
+                        if (data.code === 200) {
+                            this.imageUrl = typeof data.data === 'string' ? data.data : data.data.download_url || data.data.data;
+                        } else {
+                            this.errorMessage = data.message || 'File upload failed';
+                        }
+                    } catch (err) {
+                        this.errorMessage = 'Network error during upload.';
                     } finally {
                         this.isUploading = false;
+                        e.target.value = '';
                     }
                 },
 
-                async generateByTask() {
+                async generateImage() {
+                    if (!this.apiKey) return this.showConfig = true;
+                    if (!this.imageUrl || !this.prompt) {
+                        this.errorMessage = 'Base image and prompt are required.';
+                        return;
+                    }
+
                     this.isGenerating = true;
-                    this.outputImage = null;
-                    this.statusText = 'Initializing task...';
+                    this.errorMessage = '';
+                    this.outputImage = '';
+                    this.resultId = '';
 
                     try {
-                        let uploadedImageUrl = null;
-                        if (this.inputParams.file) {
-                            uploadedImageUrl = await this.uploadImage(this.inputParams.file);
-                        }
-
-                        // Prepare Payload
                         const payload = {
                             prompt: this.prompt,
-                            size: this.aspectRatio, // Assuming example 1024*1024 maps to our values
-                            num_inference_steps: 28,
-                            guidance_scale: 3.5
+                            image: this.imageUrl,
+                            images: [this.imageUrl],
+                            size: `${this.width}*${this.height}`,
+                            enable_sync_mode: true,
+                            enable_safety_checker: false,
                         };
 
-                        if (uploadedImageUrl) {
-                            payload.image_url = uploadedImageUrl;
-                            // Check if model supports img2img, some like flux-dev might, others need different endpoint?
-                            // Docs for generate-image showed image_url in 'user' content for chat, but here we use /wavespeed-ai/{model}
-                            // We will try adding image_url to root payload as per plan.
-                        }
-
-                        // Submit Task
-                        this.statusText = 'Submitting task...';
-                        const endpoint = `https://api.wavespeed.ai/api/v3/${this.selectedModel}/edit`;
-
-                        const response = await fetch(endpoint, {
+                        const res = await fetch(`https://api.wavespeed.ai/api/v3/${this.modelId}`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -545,89 +509,69 @@
                             body: JSON.stringify(payload)
                         });
 
-                        const data = await response.json();
-                        if (!response.ok) throw new Error(data.message || JSON.stringify(data));
+                        const data = await res.json();
 
-                        const taskId = data.data.id;
-                        if (!taskId) throw new Error("No Task ID returned");
+                        if (data.code === 200 && data.data && data.data.outputs && data.data.outputs.length > 0) {
+                            this.outputImage = data.data.outputs[0];
+                            this.resultId = data.data.id; // Store Task ID for downloading
+                            this.checkBalance();
 
-                        // Poll
-                        await this.pollTask(taskId);
-
-                    } catch (error) {
-                        alert("Error: " + error.message);
-                        this.isGenerating = false;
-                    }
-                },
-
-                async pollTask(taskId) {
-                    this.statusText = 'Processing...';
-                    const pollEndpoint = `https://api.wavespeed.ai/api/v3/predictions/${taskId}`;
-
-                    const interval = setInterval(async () => {
-                        try {
-                            const res = await fetch(pollEndpoint, {
-                                headers: { 'Authorization': `Bearer ${this.apiKey}` }
+                            this.history.unshift({
+                                id: this.resultId,
+                                prompt: this.prompt,
+                                input: this.imageUrl,
+                                output: this.outputImage,
+                                model: this.modelId,
+                                size: `${this.width}x${this.height}`
                             });
-                            const data = await res.json();
-
-                            if (data.data.status === 'succeeded') {
-                                clearInterval(interval);
-                                this.handleSuccess(data.data);
-                            } else if (data.data.status === 'failed') {
-                                clearInterval(interval);
-                                throw new Error(data.data.error || 'Generation failed');
-                            }
-                            // else: starting, processing -> continue polling
-                        } catch (e) {
-                            clearInterval(interval);
-                            alert("Polling Error: " + e.message);
-                            this.isGenerating = false;
+                        } else {
+                            this.errorMessage = data.message || 'Failed to generate image. Task failed.';
                         }
-                    }, 2000); // Poll server every 2 seconds
-                },
-
-                handleSuccess(data) {
-                    // Extract Output URL
-                    // Structure might be data.output[0] or data.output.url
-                    // Based on common patterns for async APIs
-                    let url = null;
-                    if (Array.isArray(data.output) && data.output.length > 0) {
-                        url = data.output[0];
-                    } else if (typeof data.output === 'string') {
-                        url = data.output;
-                    }
-
-                    if (!url) {
-                        alert("Success but no output URL found");
+                    } catch (err) {
+                        this.errorMessage = 'An error occurred making the API request.';
+                        console.error(err);
+                    } finally {
                         this.isGenerating = false;
-                        return;
                     }
-
-                    this.outputImage = url;
-                    this.isGenerating = false;
-
-                    // Save to DB
-                    const timestamp = Date.now();
-                    this.imgName = `${timestamp}`;
-
-                    const historyItem = {
-                        timestamp: timestamp,
-                        prompt: this.prompt,
-                        inputThumbnail: this.inputImage,
-                        outputUrl: this.outputImage,
-                        model: this.selectedModel
-                    };
-                    this.addHistoryToDB(historyItem);
                 },
 
-                loadFromHistory(item) {
+                // NEW: Download Image implementation bypassing CORS strictness via Blob
+                async downloadOutput() {
+                    if (!this.outputImage) return;
+                    this.isDownloading = true;
+                    try {
+                        const response = await fetch(this.outputImage);
+                        const blob = await response.blob();
+                        const blobUrl = window.URL.createObjectURL(blob);
+
+                        // Extract extension roughly, or default to png
+                        const cleanUrl = this.outputImage.split('?')[0];
+                        const extMatch = cleanUrl.match(/\.(png|jpg|jpeg|webp)$/i);
+                        const ext = extMatch ? extMatch[1] : 'png';
+                        const filename = (this.resultId || 'wavespeed-image') + '.' + ext;
+
+                        const a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+
+                        window.URL.revokeObjectURL(blobUrl);
+                    } catch (err) {
+                        console.error(err);
+                        alert("Failed to download image automatically. Click 'Open Original' to save manually.");
+                    } finally {
+                        this.isDownloading = false;
+                    }
+                },
+
+                loadHistoryItem(item) {
+                    this.imageUrl = item.input;
                     this.prompt = item.prompt;
-                    this.inputImage = item.inputThumbnail;
-                    this.inputParams.file = null; // Cannot re-upload from history easily unless we fetch blob
-                    this.outputImage = item.outputUrl;
-                    this.selectedModel = item.model;
-                    this.imgName = item.timestamp;
+                    this.outputImage = item.output;
+                    this.resultId = item.id || ''; // Load ID for downloads from history
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             }
         }
