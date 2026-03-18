@@ -1,119 +1,850 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en" x-data="appRoot()" :class="{ dark: darkMode }">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live HTML Viewer</title>
-    <script src="assets/js/tailwindcss.js"></script>
-    <script src="assets/js/theme-config.js"></script>
-    <script defer src="assets/js/alpine.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini Alpine App Gen — HTML Viewer</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        sans: ['"DM Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        surface: {
+                            light: '#f8fafc',
+                            dark: '#0f1117',
+                        },
+                        editor: {
+                            light: '#ffffff',
+                            dark: '#1a1d27',
+                        },
+                        preview: {
+                            light: '#f1f5f9',
+                            dark: '#13161f',
+                        },
+                        border: {
+                            light: '#e2e8f0',
+                            dark: '#2a2d3a',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn .2s ease',
+                        'slide-up': 'slideUp .25s ease',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+                        slideUp: { '0%': { opacity: 0, transform: 'translateY(6px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+    <!-- CodeJar -->
+    <script type="module">
+        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.min.js';
+        window.CodeJar = CodeJar;
+    </script>
+    <!-- highlight.js for syntax highlighting -->
+    <link rel="stylesheet" id="hljs-theme-light"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" />
+    <link rel="stylesheet" id="hljs-theme-dark"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" disabled />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
-        textarea::-webkit-scrollbar {
-            width: 8px;
+        * {
+            box-sizing: border-box;
         }
 
-        textarea::-webkit-scrollbar-track {
-            background: #111827;
+        html,
+        body {
+            height: 100%;
+            margin: 0;
         }
 
-        textarea::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 4px;
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+            transition: background .25s, color .25s;
+        }
+
+        .dark body,
+        .dark {
+            background: #0f1117;
+            color: #e2e8f0;
+        }
+
+        /* ── Scrollbars ── */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 99px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+
+        /* ── Editor wrapper ── */
+        .editor-wrap {
+            height: 100%;
+            overflow: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .editor-wrap .codejar-wrap {
+            min-height: 100%;
+        }
+
+        code.hljs {
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        pre.hljs {
+            background: transparent !important;
+            padding: 16px !important;
+            margin: 0 !important;
+        }
+
+        /* ── Preview iframe ── */
+        iframe#preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        /* ── Panel resize handle ── */
+        .resize-handle {
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+            transition: background .15s;
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .resize-handle:hover,
+        .resize-handle.dragging {
+            background: #22c55e44;
+        }
+
+        .resize-handle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 40px;
+            border-radius: 99px;
+            background: #22c55e88;
+            opacity: 0;
+            transition: opacity .15s;
+        }
+
+        .resize-handle:hover::after,
+        .resize-handle.dragging::after {
+            opacity: 1;
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #22c55e;
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 8px 24px #22c55e44;
+            z-index: 9999;
+            animation: fadeIn .2s ease;
+        }
+
+        /* ── Tab active indicator ── */
+        .tab-active {
+            position: relative;
+        }
+
+        .tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #22c55e;
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* ── Line numbers ── */
+        .line-numbers {
+            counter-reset: line;
+        }
+
+        .line-numbers .hljs-line::before {
+            counter-increment: line;
+            content: counter(line);
+        }
+
+        /* ── Transitions ── */
+        .pane-transition {
+            transition: width .2s ease;
+        }
+
+        /* ── Mobile preview bar ── */
+        .mobile-bar {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding: 6px 12px;
+            background: #e2e8f0;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .dark .mobile-bar {
+            background: #1e2130;
+            color: #94a3b8;
+        }
+
+        .mobile-bar span.dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 99px;
         }
     </style>
 </head>
 
-<body
-    class="bg-gray-100 dark:bg-gemini-gray-darker text-gray-800 dark:text-gemini-gray-light h-screen flex flex-col overflow-hidden transition-colors duration-300"
-    x-data="htmlViewer()">
+<body class="h-full flex flex-col dark:bg-[#0f1117] dark:text-slate-100 bg-[#f8fafc] text-slate-900">
 
-    <main class="flex-1 flex overflow-hidden">
-
-        <section
-            class="flex flex-col border-r border-gray-300 dark:border-gemini-gray-dark transition-all duration-300 ease-in-out"
-            :class="mode === 'full' ? 'w-0 overflow-hidden' : (mode === 'mobile' ? 'w-1/2' : 'w-1/2')"
-            x-show="mode !== 'full'">
-            <div
-                class="bg-gray-200 dark:bg-gemini-gray-dark px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase flex justify-between border-b border-gray-300 dark:border-gemini-gray-dark">
-                <span>Source Code</span>
-                <button @click="sourceCode=''" class="hover:text-red-500 dark:hover:text-red-400">Clear</button>
-            </div>
-            <textarea x-model="sourceCode"
-                class="flex-1 bg-white dark:bg-gemini-gray-darker text-gray-800 dark:text-green-400 font-mono text-sm p-4 focus:outline-none resize-none"
-                spellcheck="false" placeholder="Tulis HTML..."></textarea>
-        </section>
-
-        <section class="flex flex-col bg-gray-100 dark:bg-gray-900 transition-all duration-300"
-            :class="mode === 'full' ? 'w-full' : 'w-1/2'">
-            <div
-                class="bg-white dark:bg-gemini-gray-dark border-b border-gray-200 dark:border-gemini-gray-dark px-4 py-2 flex justify-between items-center gap-2 shadow-sm z-10">
-
-                <div class="flex items-center gap-2">
-                    <button @click="mode = 'split'"
-                        class="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-semibold transition-colors border"
-                        :class="mode === 'split' ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-200 dark:border-primary-700 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gemini-gray-darker'">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                        Split
-                    </button>
-
-                    <button @click="mode = 'mobile'"
-                        class="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-semibold transition-colors border"
-                        :class="mode === 'mobile' ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-200 dark:border-primary-700 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gemini-gray-darker'">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                        </svg>
-                        Mobile
-                    </button>
-
-                    <button @click="mode = 'full'"
-                        class="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-semibold transition-colors border"
-                        :class="mode === 'full' ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-200 dark:border-primary-700 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gemini-gray-darker'">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
-                            </path>
-                        </svg>
-                        Full
-                    </button>
-                </div>
-
-
-            </div>
-
-            <div class="flex-1 bg-gray-200 overflow-auto flex items-center justify-center p-4 relative">
-
-                <div class="bg-white transition-all duration-500 ease-in-out relative shadow-2xl overflow-hidden"
-                    :class="{
-                        'w-full h-full': mode === 'split' || mode === 'full',
-                        'w-[375px] h-[667px] rounded-3xl border-8 border-gray-800': mode === 'mobile'
-                    }">
-                    <div x-show="mode === 'mobile'"
-                        class="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-gray-800 rounded-b-xl z-20">
-                    </div>
-
-                    <iframe class="w-full h-full border-none"
-                        :srcdoc="sourceCode + '<script src=\'https://cdn.tailwindcss.com\'></script>'"
-                        sandbox="allow-scripts"></iframe>
-                </div>
-
-            </div>
-        </section>
-    </main>
+    <!-- ══════════════════════════════════════
+     ROOT DATA
+═══════════════════════════════════════ -->
     <script>
-        function htmlViewer() {
+        function appRoot() {
             return {
-                mode: 'split',
-                sourceCode: '<div class=\'grid place-items-center h-full text-center bg-primary-50 p-6\'>\n  <div>\n    <div class=\'w-16 h-16 bg-primary-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg\'>🚀</div>\n    <h2 class=\'text-3xl font-bold text-gray-800 mb-2\'>Siap Meluncur!</h2>\n    <p class=\'text-gray-600 mb-6\'>Cobalah ubah mode tampilan di atas.</p>\n    <button class=\'bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-full transition shadow\'>Aksi Utama</button>\n  </div>\n</div>',
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
 
+                /* ── View mode ── */
+                viewMode: 'split', // 'split' | 'mobile' | 'fullscreen'
+
+                /* ── Split ratio ── */
+                splitRatio: 50,     // editor %
+                isDragging: false,
+                dragStartX: 0,
+                dragStartRatio: 50,
+
+                /* ── Editor / Preview ── */
+                jar: null,
+                code: defaultCode(),
+                previewError: false,
+                autoRun: true,
+                debounceTimer: null,
+                toast: false,
+                toastMsg: '',
+
+                /* ── Mobile frame size ── */
+                mobileWidth: 375,
+                mobileHeight: 667,
+                mobilePreset: 'iphone',
+
+                mobilePresets: {
+                    iphone: { w: 375, h: 667, label: 'iPhone SE' },
+                    iphone14: { w: 390, h: 844, label: 'iPhone 14' },
+                    pixel: { w: 393, h: 851, label: 'Pixel 7' },
+                    tablet: { w: 768, h: 1024, label: 'iPad' },
+                },
+
+                /* ── Init ── */
+                init() {
+                    window.appRootData = this;
+                    this.$nextTick(() => {
+                        this.initEditor()
+                        this.runCode()
+                        this.syncTheme()
+                    })
+                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                        this.darkMode = e.matches
+                        this.syncTheme()
+                    })
+                },
+
+                /* ── CodeJar init ── */
+                initEditor() {
+                    const el = document.getElementById('editor-inner')
+                    if (!el) return
+                    this.jar = CodeJar(el, (node) => {
+                        if (window.hljs) {
+                            node.innerHTML = hljs.highlight(node.textContent, { language: 'html' }).value
+                        }
+                    }, { tab: '  ' })
+                    this.jar.updateCode(this.code)
+                    this.jar.onUpdate(code => {
+                        this.code = code
+                        if (this.autoRun) {
+                            clearTimeout(this.debounceTimer)
+                            this.debounceTimer = setTimeout(() => this.runCode(), 650)
+                        }
+                    })
+                },
+
+                /* ── Run code ── */
+                runCode() {
+                    const iframe = document.getElementById('preview')
+                    if (!iframe) return
+                    try {
+                        const doc = iframe.contentDocument || iframe.contentWindow.document
+                        doc.open()
+                        doc.write(this.code)
+                        doc.close()
+                        this.previewError = false
+                    } catch (e) {
+                        this.previewError = true
+                    }
+                },
+
+                /* ── Dark mode sync ── */
+                syncTheme() {
+                    const lightCSS = document.getElementById('hljs-theme-light')
+                    const darkCSS = document.getElementById('hljs-theme-dark')
+                    if (this.darkMode) {
+                        lightCSS.disabled = true
+                        darkCSS.disabled = false
+                    } else {
+                        lightCSS.disabled = false
+                        darkCSS.disabled = true
+                    }
+                },
+
+                toggleDark() {
+                    this.darkMode = !this.darkMode
+                    this.syncTheme()
+                },
+
+                /* ── Copy code ── */
+                copyCode() {
+                    navigator.clipboard.writeText(this.code).then(() => {
+                        this.showToast('Copied to clipboard!')
+                    })
+                },
+
+                /* ── Download ── */
+                downloadCode() {
+                    const blob = new Blob([this.code], { type: 'text/html' })
+                    const a = document.createElement('a')
+                    a.href = URL.createObjectURL(blob)
+                    a.download = 'app.html'
+                    a.click()
+                    this.showToast('Downloaded app.html')
+                },
+
+                /* ── Reset ── */
+                resetCode() {
+                    if (!confirm('Reset to default template?')) return
+                    this.code = defaultCode()
+                    if (this.jar) this.jar.updateCode(this.code)
+                    this.runCode()
+                },
+
+                /* ── Toast ── */
+                showToast(msg) {
+                    this.toastMsg = msg
+                    this.toast = true
+                    setTimeout(() => this.toast = false, 2200)
+                },
+
+                /* ── Set view mode ── */
+                setView(mode) {
+                    this.viewMode = mode
+                    if (mode === 'split') {
+                        this.$nextTick(() => this.runCode())
+                    }
+                },
+
+                setMobilePreset(key) {
+                    this.mobilePreset = key
+                    this.mobileWidth = this.mobilePresets[key].w
+                    this.mobileHeight = this.mobilePresets[key].h
+                    this.$nextTick(() => this.runCode())
+                },
+
+                /* ── Resize drag ── */
+                startResize(e) {
+                    this.isDragging = true
+                    this.dragStartX = e.clientX
+                    this.dragStartRatio = this.splitRatio
+                    document.body.style.userSelect = 'none'
+                    document.body.style.cursor = 'col-resize'
+                    const onMove = (ev) => this.onResize(ev)
+                    const onUp = () => {
+                        this.isDragging = false
+                        document.body.style.userSelect = ''
+                        document.body.style.cursor = ''
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                    }
+                    document.addEventListener('mousemove', onMove)
+                    document.addEventListener('mouseup', onUp)
+                },
+
+                onResize(e) {
+                    if (!this.isDragging) return
+                    const container = document.getElementById('split-container')
+                    if (!container) return
+                    const totalW = container.offsetWidth
+                    const delta = e.clientX - this.dragStartX
+                    const deltaRatio = (delta / totalW) * 100
+                    this.splitRatio = Math.min(80, Math.max(20, this.dragStartRatio + deltaRatio))
+                },
             }
         }
+
+        /* ── Default starter template ── */
+        function defaultCode() {
+            return `<!DOCTYPE html>
+<html lang="en" x-data="{ count: 0, darkMode: false }" :class="{ dark: darkMode }">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Alpine App</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <script>tailwind.config = { darkMode: 'class' }<\/script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"><\/script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 transition-colors duration-300 font-sans">
+
+  <div class="w-full max-w-sm mx-auto p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xl text-center">
+
+    <!-- Dark toggle -->
+    <button @click="darkMode = !darkMode"
+      class="mb-6 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5
+             rounded-full border border-slate-200 dark:border-slate-700
+             text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+      <span class="material-icons-round text-base" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+      <span x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+    </button>
+
+    <!-- Counter -->
+    <div class="text-7xl font-bold text-emerald-500 mb-4 tabular-nums"
+         x-text="count"></div>
+
+    <p class="text-sm text-slate-400 dark:text-slate-500 mb-6">Alpine.js Counter</p>
+
+    <div class="flex gap-3 justify-center">
+      <button @click="count--"
+        class="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/30
+               text-red-500 font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition">
+        <span class="material-icons-round text-lg">remove</span>
+      </button>
+
+      <button @click="count = 0"
+        class="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700
+               text-slate-500 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+        <span class="material-icons-round text-lg">refresh</span>
+      </button>
+
+      <button @click="count++"
+        class="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30
+               text-emerald-500 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition">
+        <span class="material-icons-round text-lg">add</span>
+      </button>
+    </div>
+
+  </div>
+</body>
+</html>`.trim()
+        }
     </script>
+
+    <!-- ══════════════════════════════════════
+     TOPBAR
+═══════════════════════════════════════ -->
+    <header class="flex items-center gap-3 px-4 h-12 shrink-0
+               border-b border-slate-200 dark:border-slate-800
+               bg-white dark:bg-[#1a1d27]">
+
+        <!-- Logo -->
+        <div class="flex items-center gap-2 mr-2">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-green-400 to-emerald-600
+                flex items-center justify-center shadow-sm">
+                <span class="material-icons-round text-white text-base">code</span>
+            </div>
+            <span class="font-semibold text-sm hidden sm:block text-slate-700 dark:text-slate-200">
+                Alpine<span class="text-green-500">Viewer</span>
+            </span>
+        </div>
+
+        <!-- View mode tabs -->
+        <div class="flex items-center gap-0.5 rounded-lg p-0.5
+              bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <template
+                x-for="[key, icon, label] in [['split','vertical_split','Split'],['mobile','smartphone','Mobile'],['fullscreen','fullscreen','Full']]"
+                :key="key">
+                <button @click="setView(key)" :class="viewMode === key
+          ? 'bg-white dark:bg-slate-700 text-green-600 dark:text-green-400 shadow-sm'
+          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'"
+                    class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150">
+                    <span class="material-icons-round text-sm" x-text="icon"></span>
+                    <span class="hidden sm:inline" x-text="label"></span>
+                </button>
+            </template>
+        </div>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Auto-run toggle -->
+        <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none">
+            <div class="relative w-8 h-4">
+                <input type="checkbox" x-model="autoRun" class="sr-only peer" />
+                <div class="w-8 h-4 rounded-full bg-slate-300 dark:bg-slate-600
+                  peer-checked:bg-green-500 transition-colors duration-200"></div>
+                <div class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow
+                  peer-checked:translate-x-4 transition-transform duration-200"></div>
+            </div>
+            <span class="hidden sm:inline">Auto</span>
+        </label>
+
+        <!-- Action buttons -->
+        <div class="flex items-center gap-1">
+            <!-- Run -->
+            <button @click="runCode()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600
+             text-white text-xs font-semibold transition shadow-sm shadow-green-200 dark:shadow-green-900">
+                <span class="material-icons-round text-sm">play_arrow</span>
+                <span class="hidden sm:inline">Run</span>
+            </button>
+
+            <!-- Copy -->
+            <button @click="copyCode()" title="Copy"
+                class="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <span class="material-icons-round text-base">content_copy</span>
+            </button>
+
+            <!-- Download -->
+            <button @click="downloadCode()" title="Download"
+                class="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <span class="material-icons-round text-base">download</span>
+            </button>
+
+            <!-- Reset -->
+            <button @click="resetCode()" title="Reset"
+                class="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <span class="material-icons-round text-base">restart_alt</span>
+            </button>
+
+            <!-- Dark mode -->
+            <button @click="toggleDark()" title="Toggle dark mode"
+                class="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <span class="material-icons-round text-base" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ══════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════ -->
+    <main class="flex-1 overflow-hidden flex flex-col">
+
+        <!-- ── SPLIT VIEW ── -->
+        <div x-show="viewMode === 'split'" x-transition:enter="animate-fade-in" id="split-container"
+            class="flex-1 flex overflow-hidden">
+
+            <!-- Editor pane -->
+            <div class="flex flex-col overflow-hidden" :style="`width: ${splitRatio}%`">
+
+                <!-- Pane header -->
+                <div class="flex items-center gap-2 px-4 h-9 shrink-0
+                  border-b border-slate-200 dark:border-slate-800
+                  bg-slate-50 dark:bg-[#1a1d27]">
+                    <span class="material-icons-round text-sm text-green-500">edit</span>
+                    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Editor</span>
+                    <div class="flex-1"></div>
+                    <span class="text-[10px] text-slate-400 dark:text-slate-600 font-mono">HTML</span>
+                </div>
+
+                <!-- CodeJar editor -->
+                <div class="flex-1 overflow-auto bg-white dark:bg-[#1a1d27]">
+                    <pre
+                        class="editor-wrap h-full"><code id="editor-inner"
+          class="language-html"
+          style="outline:none; display:block; min-height:100%; padding:16px; font-size:13px; line-height:1.7; font-family:'JetBrains Mono',monospace;"></code></pre>
+                </div>
+            </div>
+
+            <!-- Resize handle -->
+            <div class="resize-handle" :class="{ dragging: isDragging }" @mousedown.prevent="startResize($event)">
+            </div>
+
+            <!-- Preview pane -->
+            <div class="flex flex-col overflow-hidden flex-1">
+                <!-- Pane header -->
+                <div class="flex items-center gap-2 px-4 h-9 shrink-0
+                  border-b border-slate-200 dark:border-slate-800
+                  bg-slate-50 dark:bg-[#13161f]">
+                    <span class="material-icons-round text-sm text-sky-500">preview</span>
+                    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Preview</span>
+                    <div class="flex-1"></div>
+                    <div x-show="previewError" class="flex items-center gap-1 text-[10px] text-red-400">
+                        <span class="material-icons-round text-xs">error</span>
+                        <span>Error</span>
+                    </div>
+                    <div x-show="!previewError" class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                </div>
+
+                <!-- iframe -->
+                <div class="flex-1 bg-[#f1f5f9] dark:bg-[#13161f] overflow-hidden">
+                    <iframe id="preview" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── MOBILE VIEW ── -->
+        <div x-show="viewMode === 'mobile'" x-transition:enter="animate-fade-in"
+            class="flex-1 flex flex-col overflow-hidden">
+
+            <!-- Mobile toolbar -->
+            <div class="shrink-0 flex items-center gap-3 px-4 py-2
+                border-b border-slate-200 dark:border-slate-800
+                bg-white dark:bg-[#1a1d27]">
+                <!-- Preset selector -->
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <template x-for="[key, preset] in Object.entries(mobilePresets)" :key="key">
+                        <button @click="setMobilePreset(key)"
+                            :class="mobilePreset === key
+              ? 'bg-green-500 text-white border-green-500'
+              : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-green-400 dark:hover:border-green-700'"
+                            class="px-3 py-1 rounded-lg border text-xs font-medium transition">
+                            <span x-text="preset.label"></span>
+                        </button>
+                    </template>
+                </div>
+                <div class="flex-1"></div>
+                <span class="text-xs text-slate-400 dark:text-slate-600 font-mono"
+                    x-text="`${mobileWidth} × ${mobileHeight}`"></span>
+            </div>
+
+            <!-- Mobile + editor side by side -->
+            <div class="flex-1 flex overflow-hidden">
+
+                <!-- Editor (left, compact) -->
+                <div class="w-1/2 flex flex-col border-r border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div class="flex items-center gap-2 px-4 h-9 shrink-0
+                    bg-slate-50 dark:bg-[#1a1d27] border-b border-slate-200 dark:border-slate-800">
+                        <span class="material-icons-round text-sm text-green-500">edit</span>
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Editor</span>
+                    </div>
+                    <div class="flex-1 overflow-auto bg-white dark:bg-[#1a1d27]">
+                        <pre
+                            class="editor-wrap h-full"><code id="editor-inner-mobile"
+            class="language-html"
+            style="outline:none; display:block; min-height:100%; padding:16px; font-size:12px; line-height:1.7; font-family:'JetBrains Mono',monospace;"></code></pre>
+                    </div>
+                </div>
+
+                <!-- Mobile frame (right) -->
+                <div class="w-1/2 flex items-center justify-center overflow-auto
+                  bg-slate-200 dark:bg-[#0d0f14] py-8">
+                    <div class="flex flex-col items-center gap-4">
+                        <!-- Mock device frame -->
+                        <div class="relative rounded-[2.5rem] border-4 border-slate-800 dark:border-slate-600
+                      shadow-2xl bg-slate-800 dark:bg-slate-600 overflow-hidden"
+                            :style="`width: min(${mobileWidth}px, 45vw); aspect-ratio: ${mobileWidth}/${mobileHeight}`">
+                            <!-- Notch -->
+                            <div class="absolute top-0 left-0 right-0 flex justify-center z-10 pt-1">
+                                <div class="w-20 h-5 bg-slate-800 dark:bg-slate-600 rounded-b-2xl"></div>
+                            </div>
+                            <!-- Screen -->
+                            <iframe id="preview-mobile" sandbox="allow-scripts allow-same-origin allow-forms"
+                                class="w-full h-full border-none bg-white"></iframe>
+                        </div>
+                        <!-- Device info bar -->
+                        <div class="mobile-bar">
+                            <span class="dot bg-red-400"></span>
+                            <span class="dot bg-yellow-400"></span>
+                            <span class="dot bg-green-400"></span>
+                            <span x-text="mobilePresets[mobilePreset].label + ' — ' + mobileWidth + 'px'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── FULLSCREEN / PREVIEW ONLY ── -->
+        <div x-show="viewMode === 'fullscreen'" x-transition:enter="animate-fade-in"
+            class="flex-1 flex flex-col overflow-hidden">
+
+            <div class="shrink-0 flex items-center gap-2 px-4 h-9
+                border-b border-slate-200 dark:border-slate-800
+                bg-white dark:bg-[#13161f]">
+                <span class="material-icons-round text-sm text-sky-500">fullscreen</span>
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Preview — Fullscreen</span>
+                <div class="flex-1"></div>
+                <button @click="runCode()" class="flex items-center gap-1 px-3 py-1 rounded-lg bg-green-500 hover:bg-green-600
+               text-white text-xs font-semibold transition">
+                    <span class="material-icons-round text-sm">refresh</span>
+                    <span>Reload</span>
+                </button>
+            </div>
+
+            <div class="flex-1 bg-white dark:bg-[#13161f]">
+                <iframe id="preview-full" sandbox="allow-scripts allow-same-origin allow-forms"
+                    class="w-full h-full border-none"></iframe>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ══════════════════════════════════════
+     STATUS BAR
+═══════════════════════════════════════ -->
+    <footer class="shrink-0 flex items-center gap-3 px-4 h-7
+               border-t border-slate-200 dark:border-slate-800
+               bg-white dark:bg-[#1a1d27]
+               text-[11px] text-slate-400 dark:text-slate-600 font-mono">
+        <span class="flex items-center gap-1">
+            <span class="material-icons-round text-xs text-green-500">fiber_manual_record</span>
+            Alpine.js v3
+        </span>
+        <span>·</span>
+        <span>Tailwind CSS v3</span>
+        <span>·</span>
+        <span>CodeJar v4</span>
+        <div class="flex-1"></div>
+        <span x-text="darkMode ? '🌙 Dark' : '☀️ Light'"></span>
+    </footer>
+
+    <!-- ══════════════════════════════════════
+     TOAST
+═══════════════════════════════════════ -->
+    <div x-show="toast" x-transition class="toast" x-text="toastMsg"></div>
+
+    <!-- ══════════════════════════════════════
+     INIT SCRIPTS
+═══════════════════════════════════════ -->
+    <script>
+        /* Wire up mobile & fullscreen editors on view change via MutationObserver */
+        document.addEventListener('alpine:init', () => {
+            // Patch to sync secondary editors
+        })
+
+        /* After Alpine boots, watch for view changes and init secondary editors */
+        document.addEventListener('alpine:initialized', () => {
+            const root = window.appRootData;
+
+            /* Mobile editor */
+            const mobileEl = document.getElementById('editor-inner-mobile')
+            if (mobileEl) {
+                const jarMobile = CodeJar(mobileEl, (node) => {
+                    if (window.hljs) node.innerHTML = hljs.highlight(node.textContent, { language: 'html' }).value
+                }, { tab: '  ' })
+                jarMobile.updateCode(root.code)
+                jarMobile.onUpdate(code => {
+                    root.code = code
+                    if (root.autoRun) {
+                        clearTimeout(root.debounceTimer)
+                        root.debounceTimer = setTimeout(() => {
+                            root.runCode()
+                            syncMobilePreview(code)
+                        }, 650)
+                    }
+                })
+
+                // Keep in sync
+                const origUpdate = root.jar && root.jar.updateCode
+                setInterval(() => {
+                    if (root.viewMode === 'mobile') {
+                        const mobileIframe = document.getElementById('preview-mobile')
+                        if (mobileIframe && mobileIframe.contentDocument &&
+                            mobileIframe.contentDocument.body &&
+                            mobileIframe.contentDocument.body.innerHTML === '') {
+                            syncMobilePreview(root.code)
+                        }
+                    }
+                    if (root.viewMode === 'fullscreen') {
+                        const fullIframe = document.getElementById('preview-full')
+                        if (fullIframe && fullIframe.contentDocument &&
+                            fullIframe.contentDocument.body &&
+                            fullIframe.contentDocument.body.innerHTML === '') {
+                            syncFullPreview(root.code)
+                        }
+                    }
+                }, 300)
+            }
+
+            /* Patch runCode to also update secondary iframes */
+            const origRun = root.runCode.bind(root)
+            root.runCode = function () {
+                origRun()
+                syncMobilePreview(root.code)
+                syncFullPreview(root.code)
+            }
+
+            function syncMobilePreview(code) {
+                const iframe = document.getElementById('preview-mobile')
+                if (!iframe) return
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow.document
+                    doc.open(); doc.write(code); doc.close()
+                } catch (e) { }
+            }
+            function syncFullPreview(code) {
+                const iframe = document.getElementById('preview-full')
+                if (!iframe) return
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow.document
+                    doc.open(); doc.write(code); doc.close()
+                } catch (e) { }
+            }
+        })
+    </script>
+
 </body>
 
 </html>

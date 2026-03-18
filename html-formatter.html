@@ -1,154 +1,583 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" x-data="appRoot()" :class="{ dark: isDark }">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Alpine HTML Tool</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTML Formatter</title>
 
-    <script src="assets/js/tailwindcss.js"></script>
-
-    <script defer src="assets/js/alpine.min.js"></script>
-
-    <link rel="stylesheet" href="assets/css/codemirror.min.css">
-    <link rel="stylesheet" href="assets/css/dracula.min.css">
-
-    <script src="assets/js/codemirror.min.js"></script>
-    <script src="assets/js/codemirror-xml.min.js"></script>
-    <script src="assets/js/codemirror-htmlmixed.min.js"></script>
-
-    <script src="assets/js/beautify-html.min.js"></script>
-
-    <style>
-        /* Custom overrides to make CodeMirror fit the Tailwind flex container */
-        .CodeMirror {
-            height: 100%;
-            font-family: 'Fira Code', monospace;
-            font-size: 14px;
-        }
-    </style>
-</head>
-
-<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans antialiased" x-data="appData()">
-
-    <header class="flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
-        <div class="flex items-center gap-2">
-            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-            </svg>
-            <h1 class="text-xl font-bold tracking-wide">HTML <span class="text-cyan-400">Formatter</span></h1>
-        </div>
-
-        <div class="flex gap-3">
-            <button @click="formatCode()"
-                class="px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 rounded transition shadow-lg hover:shadow-cyan-500/20">
-                Format
-            </button>
-            <button @click="minifyCode()"
-                class="px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-500 rounded transition shadow-lg hover:shadow-purple-500/20">
-                Minify
-            </button>
-            <button @click="copyToClipboard()" x-text="copyBtnText"
-                class="px-4 py-2 text-sm font-semibold bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded transition min-w-[80px]">
-                Copy
-            </button>
-        </div>
-    </header>
-
-    <main class="flex-1 flex overflow-hidden">
-        <div class="w-full h-full relative">
-            <textarea x-ref="editorArea"></textarea>
-        </div>
-    </main>
-
-    <footer class="bg-gray-800 px-6 py-2 text-xs text-gray-500 flex justify-between border-t border-gray-700">
-        <span>Powered by Alpine.js & CodeMirror</span>
-        <span x-text="statusMsg">Ready</span>
-    </footer>
-
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        function appData() {
-            return {
-                editor: null,
-                copyBtnText: 'Copy',
-                statusMsg: 'Ready to edit',
-                cmConfig: {
-                    mode: 'htmlmixed',
-                    theme: 'dracula',
-                    lineNumbers: true,
-                    lineWrapping: true,
-                    autofocus: true,
-                    tabSize: 2
-                },
-
-                init() {
-                    // Initialize CodeMirror on the textarea ref
-                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
-
-                    // Set default demo content
-                    const demo = `<div class="container"><h1>Hello World</h1><p>This is a    messy   HTML string.</p></div>`;
-                    this.editor.setValue(demo);
-                    this.editor.toTextArea()
-                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
-
-                    // Update status on change
-                    this.editor.on('change', () => {
-                        this.statusMsg = `Chars: ${this.editor.getValue().length}`;
-                    });
-                },
-
-                formatCode() {
-                    const raw = this.editor.getValue();
-                    if (!raw.trim()) return;
-
-                    // Use js-beautify library
-                    const formatted = html_beautify(raw, {
-                        indent_size: 2,
-                        wrap_line_length: 80,
-                        preserve_newlines: true
-                    });
-
-                    this.editor.setValue(formatted);
-                    this.editor.toTextArea()
-                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
-                    this.statusMsg = 'Formatted successfully';
-                },
-
-                minifyCode() {
-                    const raw = this.editor.getValue();
-                    if (!raw.trim()) return;
-
-                    // Simple Regex-based minification for "Mini" app context
-                    // 1. Remove new lines
-                    // 2. Remove whitespace between tags
-                    // 3. Collapse multiple spaces
-                    let minified = raw
-                        .replace(/\n/g, "")
-                        .replace(/[\t ]+\</g, "<")
-                        .replace(/\>[\t ]+\</g, "><")
-                        .replace(/\>[\t ]+$/g, ">")
-                        .replace(/\s{2,}/g, ' ');
-
-                    this.editor.setValue(minified);
-                    this.editor.toTextArea()
-                    this.editor = CodeMirror.fromTextArea(this.$refs.editorArea, this.cmConfig);
-                    this.statusMsg = 'Minified successfully';
-                },
-
-                async copyToClipboard() {
-                    try {
-                        await navigator.clipboard.writeText(this.editor.getValue());
-                        this.copyBtnText = 'Copied!';
-                        this.statusMsg = 'Copied to clipboard';
-                        setTimeout(() => this.copyBtnText = 'Copy', 2000);
-                    } catch (err) {
-                        this.statusMsg = 'Failed to copy';
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        display: ['"Syne"', 'sans-serif'],
+                    },
+                    colors: {
+                        zinc: {
+                            950: '#09090b',
+                        }
                     }
                 }
             }
         }
     </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <!-- CodeJar -->
+    <script type="module">
+        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.min.js';
+        window.CodeJar = CodeJar;
+    </script>
+
+    <!-- Highlight.js for syntax highlighting inside CodeJar -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+        id="hljs-theme-dark" />
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css"
+        id="hljs-theme-light" disabled />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+
+    <style>
+        /* ── Base reset & font ── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Syne', sans-serif;
+        }
+
+        /* ── Scanline texture overlay ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9999;
+            background-image: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.025) 2px,
+                    rgba(0, 0, 0, 0.025) 4px);
+        }
+
+        /* ── CodeJar editor ── */
+        .editor-wrap {
+            position: relative;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            overflow: auto;
+            tab-size: 2;
+        }
+
+        .editor-wrap code {
+            outline: none;
+            white-space: pre;
+            overflow-wrap: normal;
+            display: block;
+        }
+
+        /* ── Custom scrollbar ── */
+        .editor-wrap::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .editor-wrap::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .editor-wrap::-webkit-scrollbar-thumb {
+            background: #52525b;
+            border-radius: 99px;
+        }
+
+        /* ── Glow chip animation ── */
+        @keyframes glow-pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+            }
+
+            50% {
+                box-shadow: 0 0 14px 3px rgba(251, 191, 36, 0.35);
+            }
+        }
+
+        .btn-format:not(:disabled):hover {
+            animation: glow-pulse 1.4s ease infinite;
+        }
+
+        /* ── Tag badge ── */
+        .tag-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            padding: 2px 8px;
+            border-radius: 99px;
+        }
+
+        /* ── Snackbar ── */
+        @keyframes slide-up {
+            from {
+                transform: translateY(12px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .snackbar {
+            animation: slide-up 0.22s ease;
+        }
+
+        /* ── Dark / light hljs theme toggle ── */
+        .dark #hljs-theme-light {
+            disabled: true;
+        }
+
+        .dark #hljs-theme-dark {
+            disabled: false;
+        }
+
+        /* ── Ruler dots ── */
+        .ruler-dot {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+
+<body
+    class="h-screen flex flex-col overflow-hidden bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-300"
+    x-init="init()">
+
+    <!-- ══════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════ -->
+    <header
+        class="shrink-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-950/80 backdrop-blur-md">
+        <div class="px-4 h-12 flex items-center justify-between gap-4">
+
+            <!-- Brand -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded bg-amber-400 dark:bg-amber-500 flex items-center justify-center shadow">
+                    <span class="material-icons-round text-zinc-900 text-sm leading-none"
+                        style="font-size:16px">code</span>
+                </div>
+                <span class="font-display font-800 text-base tracking-tight">
+                    html<span class="text-amber-500 dark:text-amber-400">fmt</span>
+                </span>
+                <span class="tag-badge bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">v1.0</span>
+            </div>
+
+            <!-- Right controls -->
+            <div class="flex items-center gap-2">
+
+                <!-- Indent size -->
+                <div class="hidden sm:flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 select-none">
+                    <span class="material-icons-round text-xs" style="font-size:15px">space_bar</span>
+                    <span>Indent</span>
+                    <select x-model.number="indentSize"
+                        class="bg-zinc-200 dark:bg-zinc-800 border-0 rounded px-2 py-0.5 text-xs font-mono text-zinc-800 dark:text-zinc-200 cursor-pointer focus:ring-0 focus:outline-none">
+                        <option value="2">2</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+
+                <!-- Dark toggle -->
+                <button @click="toggleDark()"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                    :title="isDark ? 'Light mode' : 'Dark mode'">
+                    <span class="material-icons-round" style="font-size:18px"
+                        x-text="isDark ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+
+    <!-- ══════════════════════════════════════════
+       MAIN — fills remaining height
+  ══════════════════════════════════════════ -->
+    <main class="flex-1 flex flex-col overflow-hidden px-4 pt-3 pb-3 gap-3">
+
+        <!-- ── EDITOR CARD — flex-1 so it fills all available space ── -->
+        <div
+            class="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+
+            <!-- Card header bar -->
+            <div
+                class="shrink-0 flex items-center justify-between px-4 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
+
+                <!-- Dots + filename -->
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1.5">
+                        <div class="ruler-dot bg-red-400/70"></div>
+                        <div class="ruler-dot bg-amber-400/70"></div>
+                        <div class="ruler-dot bg-green-400/70"></div>
+                    </div>
+                    <span
+                        class="tag-badge bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">index.html</span>
+                </div>
+
+                <!-- Right: stats + copy -->
+                <div class="flex items-center gap-3">
+                    <div
+                        class="hidden sm:flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 font-mono select-none">
+                        <span><span class="text-zinc-600 dark:text-zinc-300" x-text="charCount"></span> chars</span>
+                        <span class="w-px h-3 bg-zinc-300 dark:bg-zinc-700"></span>
+                        <span><span class="text-zinc-600 dark:text-zinc-300" x-text="lineCount"></span> lines</span>
+                    </div>
+                    <button @click="copyCode()"
+                        class="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">
+                        <span class="material-icons-round" style="font-size:15px"
+                            x-text="copied ? 'check' : 'content_copy'"></span>
+                        <span x-text="copied ? 'Copied!' : 'Copy'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- CodeJar — flex-1 fills remaining card height -->
+            <div id="editor"
+                class="editor-wrap flex-1 w-full overflow-auto p-4 bg-[#282c34] dark:bg-[#1a1d23] text-[#abb2bf]"><code
+                    class="language-html hljs"></code></div>
+
+        </div>
+
+        <!-- ── TOOLBAR ── -->
+        <div class="shrink-0 flex flex-wrap items-center gap-2">
+
+            <!-- FORMAT -->
+            <button @click="format()" :disabled="processing"
+                class="btn-format flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 dark:bg-amber-500 dark:hover:bg-amber-400 text-zinc-900 font-semibold text-sm shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                <span class="material-icons-round" style="font-size:17px">auto_fix_high</span>
+                Format
+            </button>
+
+            <!-- MINIFY -->
+            <button @click="minify()" :disabled="processing"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-100 font-semibold text-sm shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                <span class="material-icons-round" style="font-size:17px">compress</span>
+                Minify
+            </button>
+
+            <!-- CLEAR -->
+            <button @click="clearEditor()"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-medium text-sm transition-all">
+                <span class="material-icons-round" style="font-size:17px">delete_outline</span>
+                Clear
+            </button>
+
+            <!-- Divider -->
+            <div class="w-px h-5 bg-zinc-200 dark:bg-zinc-700 hidden sm:block"></div>
+
+            <!-- Samples -->
+            <span class="text-xs text-zinc-400 dark:text-zinc-500 font-mono hidden sm:inline">Sample:</span>
+            <button @click="loadSample('messy')"
+                class="px-3 py-1.5 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors font-mono">messy</button>
+            <button @click="loadSample('minified')"
+                class="px-3 py-1.5 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors font-mono">minified</button>
+
+            <!-- Indent (mobile fallback) -->
+            <div class="flex sm:hidden items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 ml-auto">
+                <span>Indent</span>
+                <select x-model.number="indentSize"
+                    class="bg-zinc-200 dark:bg-zinc-800 border-0 rounded px-2 py-0.5 text-xs font-mono text-zinc-800 dark:text-zinc-200 focus:ring-0 focus:outline-none">
+                    <option value="2">2</option>
+                    <option value="4">4</option>
+                </select>
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- ══════════════════════════════════════════
+       SNACKBAR
+  ══════════════════════════════════════════ -->
+    <div x-show="snack.show" x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="snackbar fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl text-sm font-medium"
+        :class="snack.type === 'success'
+      ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900'
+      : 'bg-red-500 text-white'">
+        <span class="material-icons-round" style="font-size:16px"
+            x-text="snack.type === 'success' ? 'check_circle' : 'error_outline'"></span>
+        <span x-text="snack.message"></span>
+    </div>
+
+
+    <!-- ══════════════════════════════════════════
+       Alpine.js
+  ══════════════════════════════════════════ -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <script>
+        function appRoot() {
+            return {
+                isDark: true,
+                processing: false,
+                copied: false,
+                indentSize: 2,
+                charCount: 0,
+                lineCount: 1,
+                snack: { show: false, message: '', type: 'success' },
+                jar: null,
+
+                /* ── Lifecycle ── */
+                init() {
+                    this.$nextTick(() => {
+                        this.isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        this.syncHljsTheme();
+                        this.initCodeJar();
+                    });
+                },
+
+                /* ── CodeJar setup ── */
+                initCodeJar() {
+                    const editorEl = document.getElementById('editor');
+
+                    const highlight = (editor) => {
+                        const code = editor.querySelector('code') || editor;
+                        // Preserve cursor by working on innerHTML, not textContent
+                        let raw = editor.textContent;
+                        code.innerHTML = hljs.highlight(raw, { language: 'xml' }).value;
+                    };
+
+                    this.jar = CodeJar(editorEl, highlight, {
+                        tab: ' '.repeat(this.indentSize),
+                        indentOn: /[>\[({]$/,
+                    });
+
+                    this.jar.onUpdate((code) => {
+                        this.charCount = code.length;
+                        this.lineCount = code.split('\n').length;
+                    });
+
+                    // Load placeholder
+                    this.jar.updateCode('<!-- Paste or type your HTML here -->');
+                },
+
+                /* ── Dark mode ── */
+                toggleDark() {
+                    this.isDark = !this.isDark;
+                    this.syncHljsTheme();
+                },
+                syncHljsTheme() {
+                    const darkLink = document.getElementById('hljs-theme-dark');
+                    const lightLink = document.getElementById('hljs-theme-light');
+                    if (this.isDark) {
+                        darkLink.disabled = false;
+                        lightLink.disabled = true;
+                    } else {
+                        darkLink.disabled = true;
+                        lightLink.disabled = false;
+                        // Also update editor colors
+                    }
+                    // Update editor bg
+                    const ed = document.getElementById('editor');
+                    if (this.isDark) {
+                        ed.style.background = '#1a1d23';
+                    } else {
+                        ed.style.background = '#fafafa';
+                        ed.style.color = '#383a42';
+                    }
+                },
+
+                /* ── FORMAT ── */
+                format() {
+                    const raw = this.jar.toString();
+                    if (!raw.trim()) { this.showSnack('Nothing to format!', 'error'); return; }
+                    try {
+                        const formatted = this.prettyPrint(raw, this.indentSize);
+                        this.jar.updateCode(formatted);
+                        this.showSnack('Formatted successfully ✦');
+                    } catch (e) {
+                        this.showSnack('Could not format — check HTML syntax', 'error');
+                    }
+                },
+
+                /* ── MINIFY ── */
+                minify() {
+                    const raw = this.jar.toString();
+                    if (!raw.trim()) { this.showSnack('Nothing to minify!', 'error'); return; }
+                    try {
+                        const mini = raw
+                            .replace(/<!--(?!\[if)[\s\S]*?-->/g, '')   // strip comments
+                            .replace(/\n\s*/g, ' ')                     // collapse newlines
+                            .replace(/\s{2,}/g, ' ')                    // collapse spaces
+                            .replace(/\s*=\s*/g, '=')                   // clean attr spacing
+                            .replace(/>\s+</g, '><')                    // strip inter-tag space
+                            .trim();
+                        this.jar.updateCode(mini);
+                        this.showSnack('Minified successfully ⚡');
+                    } catch (e) {
+                        this.showSnack('Could not minify', 'error');
+                    }
+                },
+
+                /* ── CLEAR ── */
+                clearEditor() {
+                    this.jar.updateCode('');
+                    this.charCount = 0;
+                    this.lineCount = 1;
+                },
+
+                /* ── COPY ── */
+                async copyCode() {
+                    const code = this.jar.toString();
+                    if (!code.trim()) return;
+                    try {
+                        await navigator.clipboard.writeText(code);
+                        this.copied = true;
+                        setTimeout(() => this.copied = false, 2000);
+                        this.showSnack('Copied to clipboard');
+                    } catch {
+                        this.showSnack('Copy failed', 'error');
+                    }
+                },
+
+                /* ── SAMPLES ── */
+                loadSample(type) {
+                    const messy = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>  Sample Page  </title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+<nav>
+<ul>
+<li><a href="/">Home</a></li>
+<li><a href="/about">About</a></li>
+</ul>
+</nav>
+</header>
+<main>
+<section class="hero">
+<h1>Hello World</h1>
+<p>This is a <strong>sample</strong> page with   extra   spaces.</p>
+<button onclick="alert('hi')">Click Me</button>
+</section>
+</main>
+<footer><p>&copy; 2025</p></footer>
+</body>
+</html>`;
+
+                    const minified = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Sample Page</title><link rel="stylesheet" href="styles.css"></head><body><header><nav><ul><li><a href="/">Home</a></li><li><a href="/about">About</a></li></ul></nav></header><main><section class="hero"><h1>Hello World</h1><p>This is a <strong>sample</strong> page.</p><button onclick="alert('hi')">Click Me</button></section></main><footer><p>&copy; 2025</p></footer></body></html>`;
+
+                    this.jar.updateCode(type === 'messy' ? messy : minified);
+                    this.showSnack(`Loaded ${type} sample`);
+                },
+
+                /* ── Pretty Printer ── */
+                prettyPrint(html, indent) {
+                    const tab = ' '.repeat(indent);
+                    const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+                    const INLINE = new Set(['a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'dfn', 'em', 'i', 'kbd', 'mark', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr']);
+                    const RAW = new Set(['script', 'style', 'pre', 'textarea']);
+
+                    // Tokenize
+                    const tokens = [];
+                    const re = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\/?[a-zA-Z][^>]*>|[^<]+/g;
+                    let m;
+                    while ((m = re.exec(html)) !== null) tokens.push(m[0]);
+
+                    let level = 0;
+                    const lines = [];
+                    let inRaw = null;
+                    let rawBuf = '';
+
+                    const flush = (txt) => {
+                        const t = txt.trim();
+                        if (t) lines.push(tab.repeat(Math.max(0, level)) + t);
+                    };
+
+                    for (let i = 0; i < tokens.length; i++) {
+                        const tok = tokens[i];
+
+                        if (inRaw) {
+                            const closeTag = '</' + inRaw;
+                            const idx = tok.toLowerCase().indexOf(closeTag);
+                            if (idx !== -1) {
+                                rawBuf += tok.slice(0, idx);
+                                // indent raw content lines
+                                rawBuf.split('\n').forEach(l => { if (l.trim()) lines.push(tab.repeat(level + 1) + l.trim()); });
+                                level--;
+                                lines.push(tab.repeat(level) + '</' + inRaw + '>');
+                                inRaw = null; rawBuf = '';
+                            } else {
+                                rawBuf += tok;
+                            }
+                            continue;
+                        }
+
+                        if (tok.startsWith('<!--') || tok.startsWith('<![CDATA[')) {
+                            flush(tok); continue;
+                        }
+
+                        if (tok.startsWith('</')) {
+                            const tag = tok.match(/<\/([a-zA-Z0-9]+)/)?.[1]?.toLowerCase();
+                            if (tag && !INLINE.has(tag)) level = Math.max(0, level - 1);
+                            flush(tok);
+                        } else if (tok.startsWith('<')) {
+                            const tag = tok.match(/<([a-zA-Z0-9]+)/)?.[1]?.toLowerCase();
+                            const isSelfClose = tok.endsWith('/>') || VOID.has(tag);
+                            const isInline = INLINE.has(tag);
+                            if (!isInline) flush(tok);
+                            else lines.push(tab.repeat(level) + tok);
+                            if (!isSelfClose && !isInline) {
+                                if (RAW.has(tag)) { inRaw = tag; level++; rawBuf = ''; }
+                                else level++;
+                            }
+                        } else {
+                            const text = tok.replace(/\s+/g, ' ').trim();
+                            if (text) lines.push(tab.repeat(level) + text);
+                        }
+                    }
+
+                    return lines.join('\n');
+                },
+
+                /* ── Snackbar ── */
+                showSnack(message, type = 'success') {
+                    this.snack = { show: true, message, type };
+                    setTimeout(() => this.snack.show = false, 2400);
+                }
+            };
+        }
+    </script>
+
 </body>
 
 </html>

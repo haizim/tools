@@ -1,208 +1,598 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" x-data="jsonFormatter()" :class="{ dark: darkMode }">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JSON Formatter</title>
 
-    <script src="assets/js/tailwindcss.js"></script>
-    <script src="assets/js/theme-config.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        sans: ['"DM Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
 
-    <script defer src="assets/js/alpine.min.js"></script>
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet" />
 
-    <link rel="stylesheet" href="assets/css/codemirror.min.css">
-    <link rel="stylesheet" href="assets/css/dracula.min.css">
-    <link rel="stylesheet" href="assets/css/foldgutter.min.css">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
 
+    <!-- Highlight.js: dark theme default, light theme disabled -->
+    <link id="hljs-dark" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <link id="hljs-light" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" disabled />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
 
+    <!-- CodeJar -->
+    <script type="module">
+        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.min.js';
+        window.CodeJar = CodeJar;
+    </script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
-        /* Custom overrides to make CodeMirror fill the container */
-        .CodeMirror {
-            height: auto;
-            min-height: 300px;
-            font-family: 'Fira Code', monospace;
-            font-size: 14px;
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        /* ─── Editor wrapper ─────────────────────── */
+        .jar-wrap {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            display: flex;
+        }
+
+        /* ─── Gutter ──────────────────────────────── */
+        .gutter {
+            flex-shrink: 0;
+            width: 44px;
+            padding: 16px 8px 16px 0;
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            line-height: 1.75em;
+            user-select: none;
+            pointer-events: none;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+
+        .gutter span {
+            display: block;
+        }
+
+        .dark .gutter {
+            color: #3f3f52;
+            background: #0d0d11;
+            border-right: 1px solid #1f1f28;
+        }
+
+        .gutter {
+            color: #c4c4c8;
+            background: #f5f5f5;
+            border-right: 1px solid #e4e4e7;
+        }
+
+        /* ─── CodeJar host element ────────────────── */
+        .editor {
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 13px !important;
+            line-height: 1.75em !important;
+            padding: 16px 20px;
+            min-height: 100%;
+            outline: none;
+            white-space: pre;
+            overflow-wrap: normal;
+            tab-size: 2;
+            caret-color: #f59e0b;
+        }
+
+        .editor .hljs {
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        /* bg per theme */
+        .dark .jar-wrap {
+            background: #0d0d11;
+        }
+
+        .jar-wrap {
+            background: #fafafa;
+        }
+
+        /* ─── Divider ─────────────────────────────── */
+        #divider {
+            cursor: col-resize;
+            user-select: none;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        #divider::after {
+            content: '';
+            position: absolute;
+            inset: 0 -5px;
+            z-index: 10;
+        }
+
+        /* ─── Misc ────────────────────────────────── */
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .35
+            }
+        }
+
+        .pulse {
+            animation: pulse-dot 1.8s ease-in-out infinite;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #52525b;
+            border-radius: 99px;
+        }
+
+        #toast {
+            pointer-events: none;
+            transition: opacity .22s ease, transform .22s ease;
+        }
+
+        select option {
+            background: #27272a;
+            color: #f4f4f5;
         }
     </style>
 </head>
 
-<body
-    class="bg-gray-100 dark:bg-gemini-gray-darker text-gray-800 dark:text-gemini-gray-light min-h-screen flex flex-col transition-colors duration-300">
-    <script>
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
+<body class="bg-zinc-100 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 transition-colors duration-200 flex flex-col"
+    @mousemove="onDrag($event)" @mouseup="stopDrag()" @mouseleave="stopDrag()">
 
-    <div x-data="jsonFormatter()" x-init="initEditors()" class="flex flex-col">
+    <!-- ░░ TOP BAR ░░ -->
+    <header
+        class="flex items-center justify-between px-4 h-12 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 z-20 shadow-sm">
 
-        <header
-            class="flex items-center justify-between px-6 py-3 bg-white dark:bg-gemini-gray-dark border-b border-gray-200 dark:border-gemini-gray-dark shadow-sm z-10">
-            <div class="flex items-center gap-2">
-                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-                </svg>
-                <h1 class="font-bold text-lg tracking-wide text-gray-800 dark:text-white">JSON <span
-                        class="text-primary-600 dark:text-primary-400">Formatter</span></h1>
+        <!-- Logo + Badge -->
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <div class="flex items-center gap-1.5">
+                <span class="material-icons-round text-amber-500" style="font-size:18px">data_object</span>
+                <span class="font-semibold text-sm tracking-tight text-zinc-900 dark:text-white">JSON<span
+                        class="text-amber-500">fmt</span></span>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="text-sm text-gray-500 dark:text-gray-400" x-text="statusMessage"></div>
-                <!-- Theme Toggle Button -->
-                <button @click="toggleTheme()"
-                    class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors">
-                    <!-- Sun Icon -->
-                    <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
-                        </path>
-                    </svg>
-                    <!-- Moon Icon -->
-                    <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        style="display: none;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
-                        </path>
-                    </svg>
+            <div class="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded-full border" :class="{
+          'border-emerald-400/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400': status==='valid',
+          'border-red-400/40 bg-red-500/10 text-red-600 dark:text-red-400': status==='error',
+          'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-400': status==='idle',
+        }">
+                <span class="w-1.5 h-1.5 rounded-full pulse flex-shrink-0"
+                    :class="{'bg-emerald-500':status==='valid','bg-red-500':status==='error','bg-zinc-400':status==='idle'}">
+                </span>
+                <span x-text="statusText"></span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-1">
+            <label class="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 mr-1">
+                <span class="material-icons-round" style="font-size:16px">format_indent_increase</span>
+                <select x-model="indent" @change="doFormat(); lsSet(LS.INDENT, indent)"
+                    class="bg-transparent text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 text-zinc-700 dark:text-zinc-300 focus:outline-none cursor-pointer">
+                    <option value="2">2</option>
+                    <option value="4">4</option>
+                    <option value="8">8</option>
+                </select>
+            </label>
+            <button @click="doFormat()"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors">
+                <span class="material-icons-round" style="font-size:15px">auto_fix_high</span>Format
+            </button>
+            <button @click="doMinify()"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 transition-colors">
+                <span class="material-icons-round" style="font-size:15px">compress</span>Minify
+            </button>
+            <button @click="copyOutput()"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 transition-colors">
+                <span class="material-icons-round" style="font-size:15px">content_copy</span>Copy
+            </button>
+            <button @click="doClear()"
+                class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                <span class="material-icons-round" style="font-size:16px">delete_outline</span>
+            </button>
+        </div>
+
+        <!-- Dark toggle -->
+        <button @click="toggleDark()"
+            class="flex items-center px-2 py-1 rounded-md text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="material-icons-round" style="font-size:18px" x-text="darkMode?'light_mode':'dark_mode'"></span>
+        </button>
+    </header>
+
+    <!-- ░░ SPLIT AREA ░░ -->
+    <div class="flex flex-1 overflow-hidden" id="split-container">
+
+        <!-- LEFT: Input -->
+        <div class="flex flex-col overflow-hidden flex-shrink-0" :style="`width:${leftWidth}%`">
+            <div
+                class="flex items-center justify-between px-3 h-8 bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                <span class="text-xs font-medium text-zinc-400 uppercase tracking-widest">Input</span>
+                <button @click="pasteClipboard()"
+                    class="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
+                    <span class="material-icons-round" style="font-size:14px">content_paste</span>Paste
                 </button>
             </div>
-        </header>
-
-        <main class="flex-1 grid grid-cols-1 md:grid-cols-2 relative">
-
-            <div class="flex flex-col border-b md:border-b-0 md:border-r border-gray-200 dark:border-gemini-gray-dark">
-                <div
-                    class="bg-gray-50 dark:bg-gemini-gray-dark px-4 py-1 text-xs text-gray-500 dark:text-gray-400 font-mono border-b border-gray-200 dark:border-gemini-gray-dark">
-                    INPUT (Raw)
-                </div>
-                <div class="relative max-h-[90vh] overflow-y-auto bg-white dark:bg-gemini-gray-darker">
-                    <textarea x-ref="inputEditor"></textarea>
+            <div class="flex-1 relative overflow-hidden">
+                <div class="jar-wrap" id="wrap-input">
+                    <div class="gutter" id="gutter-input"></div>
+                    <div id="editor-input" class="editor" spellcheck="false"></div>
                 </div>
             </div>
+        </div>
 
-            <div class="flex flex-col">
-                <div
-                    class="flex justify-between bg-gray-50 dark:bg-gemini-gray-dark px-4 py-1 border-b border-gray-200 dark:border-gemini-gray-dark">
-                    <span class="text-xs text-gray-500 dark:text-gray-400 font-mono self-center">OUTPUT
-                        (Formatted)</span>
-                    <button @click="copyToClipboard()"
-                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition">Copy
-                        JSON</button>
-                </div>
-                <div class="relative max-h-[90vh] overflow-y-auto">
-                    <textarea x-ref="outputEditor"></textarea>
+        <!-- DIVIDER -->
+        <div id="divider"
+            class="w-1 bg-zinc-200 dark:bg-zinc-800 hover:bg-amber-400 dark:hover:bg-amber-500 transition-colors z-10 flex items-center justify-center"
+            @mousedown.prevent="startDrag()">
+            <div class="w-0.5 h-10 rounded-full bg-zinc-300 dark:bg-zinc-700 pointer-events-none"></div>
+        </div>
+
+        <!-- RIGHT: Output -->
+        <div class="flex flex-col overflow-hidden flex-1">
+            <div
+                class="flex items-center justify-between px-3 h-8 bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                <span class="text-xs font-medium text-zinc-400 uppercase tracking-widest">Output</span>
+                <div class="flex items-center gap-2 text-xs text-zinc-400 font-mono" x-show="stats.chars > 0">
+                    <span x-text="`${stats.keys} keys`"></span>
+                    <span class="text-zinc-300 dark:text-zinc-600">·</span>
+                    <span x-text="`${stats.chars} chars`"></span>
                 </div>
             </div>
-
-        </main>
+            <div class="flex-1 relative overflow-hidden">
+                <div class="jar-wrap" id="wrap-output">
+                    <div class="gutter" id="gutter-output"></div>
+                    <div id="editor-output" class="editor" spellcheck="false"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="assets/js/codemirror.min.js"></script>
-    <script src="assets/js/codemirror-javascript.min.js"></script>
-    <script src="assets/js/matchbrackets.min.js"></script>
-    <script src="assets/js/codemirror-closebrackets.min.js"></script>
-    <script src="assets/js/codemirror-foldcode.min.js"></script>
-    <script src="assets/js/codemirror-foldgutter.min.js"></script>
-    <script src="assets/js/codemirror-bracefold.min.js"></script>
+    <!-- ░░ STATUS BAR ░░ -->
+    <footer
+        class="flex items-center justify-between px-4 h-7 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 text-xs font-mono text-zinc-400">
+        <span x-text="errorMsg || 'Ready'" :class="errorMsg ? 'text-red-500 dark:text-red-400' : ''"></span>
+        <span>Alpine.js · Tailwind · CodeJar · localStorage</span>
+    </footer>
 
+    <!-- ░░ TOAST ░░ -->
+    <div id="toast" x-ref="toast"
+        class="fixed bottom-10 left-1/2 px-4 py-2 rounded-lg bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900 text-xs font-medium shadow-xl opacity-0"
+        style="transform:translateX(-50%) translateY(-4px)">
+        <span x-text="toastMsg"></span>
+    </div>
 
     <script>
+        /* ── localStorage keys (global so Alpine templates can access) ── */
+        const LS = {
+            INPUT: 'jsonfmt:input',
+            OUTPUT: 'jsonfmt:output',
+            DARK: 'jsonfmt:dark',
+            INDENT: 'jsonfmt:indent',
+            WIDTH: 'jsonfmt:width',
+        };
+
+        function lsGet(k, fallback) {
+            try { const v = localStorage.getItem(k); return v !== null ? v : fallback; }
+            catch { return fallback; }
+        }
+        function lsSet(k, v) { try { localStorage.setItem(k, String(v)); } catch { } }
+
+        /* ── helpers ──────────────────────────────────────────────── */
+
+        function hljsHighlight(editor) {
+            const text = editor.textContent || '';
+            if (!text.trim()) { editor.innerHTML = ''; return; }
+            editor.innerHTML = hljs.highlight(text, { language: 'json', ignoreIllegals: true }).value;
+        }
+
+        function buildGutter(editorEl, gutterEl) {
+            const lines = (editorEl.textContent || '').split('\n').length;
+            let html = '';
+            for (let i = 1; i <= lines; i++) html += `<span>${i}</span>`;
+            gutterEl.innerHTML = html;
+        }
+
+        /* ── Alpine component ─────────────────────────────────────── */
         function jsonFormatter() {
             return {
-                editorIn: null,
-                editorOut: null,
-                statusMessage: 'Ready',
-                darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
-                cmConfig: {
-                    mode: { name: "javascript", json: true },
-                    theme: "dracula",
-                    lineNumbers: true,
-                    foldGutter: true, // Enables the arrow to collapse
-                    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-                    matchBrackets: true,
-                    autoCloseBrackets: true,
-                    viewportMargin: Infinity,
-                    lineWrapping: true
-                },
+                darkMode: lsGet(LS.DARK, String(window.matchMedia('(prefers-color-scheme: dark)').matches)) === 'true',
+                indent: lsGet(LS.INDENT, '2'),
+                status: 'idle',
+                statusText: 'idle',
+                errorMsg: '',
+                toastMsg: '',
+                leftWidth: parseFloat(lsGet(LS.WIDTH, '50')),
+                dragging: false,
+                stats: { keys: 0, chars: 0 },
 
-                initEditors() {
-                    // 1. Configure Base Settings
-                    const cmConfig = this.cmConfig
+                _jIn: null,
+                _jOut: null,
+                _lockIn: false,
+                _lockOut: false,
+                _saveTimer: null,
 
-                    // 2. Initialize Input Editor
-                    // Load saved input from LocalStorage
-                    const savedInput = localStorage.getItem('jsonFormatter_input');
-                    if (savedInput) {
-                        this.$refs.inputEditor.value = savedInput
-                    }
+                init() {
+                    // Apply initial theme
+                    document.getElementById('hljs-dark').disabled = !this.darkMode;
+                    document.getElementById('hljs-light').disabled = this.darkMode;
 
-                    this.editorIn = CodeMirror.fromTextArea(this.$refs.inputEditor, cmConfig);
-                    console.log(this.$refs.inputEditor);
+                    this.$nextTick(() => {
+                        const elIn = document.getElementById('editor-input');
+                        const elOut = document.getElementById('editor-output');
+                        const gutIn = document.getElementById('gutter-input');
+                        const gutOut = document.getElementById('gutter-output');
+                        const wrapIn = document.getElementById('wrap-input');
+                        const wrapOut = document.getElementById('wrap-output');
 
-                    // 3. Initialize Output Editor (Read Only)
-                    this.editorOut = CodeMirror.fromTextArea(this.$refs.outputEditor, cmConfig);
-                    this.formatJson();
+                        /* ── Input jar ── */
+                        this._jIn = CodeJar(elIn, (el) => {
+                            hljsHighlight(el);
+                            buildGutter(el, gutIn);
+                        }, { tab: '  ', indentOn: /[{[]$/ });
 
-                    // 4. Event Listener: Format on Change
-                    this.editorIn.on('change', () => {
-                        this.formatJson();
+                        this._jIn.onUpdate(() => {
+                            if (this._lockIn) return;
+                            this.doFormat();
+                            this._scheduleSave();
+                        });
+
+                        wrapIn.addEventListener('scroll', () => {
+                            gutIn.style.marginTop = `-${wrapIn.scrollTop}px`;
+                        });
+
+                        /* ── Output jar ── */
+                        this._jOut = CodeJar(elOut, (el) => {
+                            hljsHighlight(el);
+                            buildGutter(el, gutOut);
+                        }, { tab: '  ', indentOn: /[{[]$/ });
+
+                        this._jOut.onUpdate(() => {
+                            if (this._lockOut) return;
+                            // Sync output edits → input
+                            const val = elOut.textContent || '';
+                            this._lockIn = true;
+                            this._jIn.updateCode(val);
+                            buildGutter(elIn, gutIn);
+                            this._lockIn = false;
+                            this.validate(val);
+                            this._scheduleSave();
+                        });
+
+                        wrapOut.addEventListener('scroll', () => {
+                            gutOut.style.marginTop = `-${wrapOut.scrollTop}px`;
+                        });
+
+                        /* ── Restore from localStorage or show demo ── */
+                        const savedInput = lsGet(LS.INPUT, null);
+                        if (savedInput !== null && savedInput.trim() !== '') {
+                            this._jIn.updateCode(savedInput);
+                            // Output will be populated by doFormat() triggered from onUpdate
+                            this.$nextTick(() => this.showToast('Session restored'));
+                        } else {
+                            this._jIn.updateCode(JSON.stringify({
+                                name: "JSON Formatter",
+                                version: "1.0.0",
+                                features: ["format", "minify", "edit", "dark mode"],
+                                meta: { author: "Mini Alpine App Gen", stack: ["Alpine.js", "Tailwind CSS", "CodeJar"] }
+                            }));
+                        }
                     });
                 },
 
-                toggleTheme() {
-                    this.darkMode = !this.darkMode;
-                    localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
-
-                    if (this.darkMode) {
-                        document.documentElement.classList.add('dark');
-                        this.editorIn.setOption('theme', 'dracula');
-                        this.editorOut.setOption('theme', 'dracula');
-                    } else {
-                        document.documentElement.classList.remove('dark');
-                        this.editorIn.setOption('theme', 'default');
-                        this.editorOut.setOption('theme', 'default');
-                    }
+                /* Debounced save — waits 600ms after last keystroke */
+                _scheduleSave() {
+                    clearTimeout(this._saveTimer);
+                    this._saveTimer = setTimeout(() => this._persist(), 600);
                 },
 
-                formatJson() {
-                    const rawValue = this.editorIn.getValue();
+                _persist() {
+                    const elIn = document.getElementById('editor-input');
+                    const elOut = document.getElementById('editor-output');
+                    lsSet(LS.INPUT, elIn ? elIn.textContent : '');
+                    lsSet(LS.OUTPUT, elOut ? elOut.textContent : '');
+                    lsSet(LS.DARK, this.darkMode);
+                    lsSet(LS.INDENT, this.indent);
+                    lsSet(LS.WIDTH, this.leftWidth.toFixed(2));
+                },
 
-                    if (!rawValue.trim()) {
-                        this.editorOut.setValue('');
-                        this.statusMessage = 'Waiting for input...';
+                /* Pretty-print input → output */
+                doFormat() {
+                    const elIn = document.getElementById('editor-input');
+                    const elOut = document.getElementById('editor-output');
+                    const gutOut = document.getElementById('gutter-output');
+                    const raw = (elIn ? elIn.textContent : '').trim();
+
+                    if (!raw) {
+                        this._setOut('', elOut, gutOut);
+                        this._setState('idle', 'idle', '', { keys: 0, chars: 0 });
                         return;
                     }
-
                     try {
-                        // Parse and Stringify with 2-space indentation
-                        const parsed = JSON.parse(rawValue);
-                        const formatted = JSON.stringify(parsed, null, 2);
-
-                        this.editorOut.setValue(formatted)
-                        this.editorOut.toTextArea()
-                        this.editorOut = CodeMirror.fromTextArea(this.$refs.outputEditor, this.cmConfig);
-
-                        this.statusMessage = 'Valid JSON';
+                        const parsed = JSON.parse(raw);
+                        const formatted = JSON.stringify(parsed, null, parseInt(this.indent));
+                        this._setOut(formatted, elOut, gutOut);
+                        this._setState('valid', 'valid JSON', '', {
+                            keys: this.countKeys(parsed),
+                            chars: formatted.length
+                        });
                     } catch (e) {
-                        this.statusMessage = `Error: ${e.message}`;
+                        this._setOut('', elOut, gutOut);
+                        this._setState('error', 'invalid', e.message, { keys: 0, chars: 0 });
                     }
                 },
 
-                copyToClipboard() {
-                    const content = this.editorOut.getValue();
-                    if (content) {
-                        navigator.clipboard.writeText(content);
-                        const oldMsg = this.statusMessage;
-                        this.statusMessage = 'Copied to clipboard!';
-                        setTimeout(() => this.statusMessage = oldMsg, 2000);
+                /* Validate without overwriting output */
+                validate(raw) {
+                    if (!raw.trim()) { this._setState('idle', 'idle', '', { keys: 0, chars: 0 }); return; }
+                    try {
+                        const p = JSON.parse(raw);
+                        this._setState('valid', 'valid JSON', '', {
+                            keys: this.countKeys(p),
+                            chars: raw.length
+                        });
+                    } catch (e) {
+                        this._setState('error', 'invalid', e.message, { keys: 0, chars: 0 });
                     }
-                }
-            }
+                },
+
+                doMinify() {
+                    const elIn = document.getElementById('editor-input');
+                    const elOut = document.getElementById('editor-output');
+                    const gutOut = document.getElementById('gutter-output');
+                    const raw = (elIn ? elIn.textContent : '').trim();
+                    if (!raw) return;
+                    try {
+                        const parsed = JSON.parse(raw);
+                        const minified = JSON.stringify(parsed);
+                        this._setOut(minified, elOut, gutOut);
+                        this._setState('valid', 'minified', '', {
+                            keys: this.countKeys(parsed),
+                            chars: minified.length
+                        });
+                        this.showToast('Minified!');
+                        this._persist();
+                    } catch (e) {
+                        this._setState('error', 'invalid', e.message, { keys: 0, chars: 0 });
+                    }
+                },
+
+                copyOutput() {
+                    const el = document.getElementById('editor-output');
+                    const val = el ? el.textContent : '';
+                    if (!val.trim()) return;
+                    navigator.clipboard.writeText(val).then(() => this.showToast('Copied to clipboard!'));
+                },
+
+                async pasteClipboard() {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        const elIn = document.getElementById('editor-input');
+                        const gutIn = document.getElementById('gutter-input');
+                        this._jIn && this._jIn.updateCode(text);
+                        buildGutter(elIn, gutIn);
+                    } catch { this.showToast('Clipboard access denied'); }
+                },
+
+                doClear() {
+                    const elIn = document.getElementById('editor-input');
+                    const elOut = document.getElementById('editor-output');
+                    const gutIn = document.getElementById('gutter-input');
+                    const gutOut = document.getElementById('gutter-output');
+                    this._jIn && this._jIn.updateCode('');
+                    this._lockOut = true;
+                    this._jOut && this._jOut.updateCode('');
+                    this._lockOut = false;
+                    buildGutter(elIn, gutIn);
+                    buildGutter(elOut, gutOut);
+                    this._setState('idle', 'idle', '', { keys: 0, chars: 0 });
+                    this._persist();
+                },
+
+                toggleDark() {
+                    this.darkMode = !this.darkMode;
+                    document.getElementById('hljs-dark').disabled = !this.darkMode;
+                    document.getElementById('hljs-light').disabled = this.darkMode;
+                    lsSet(LS.DARK, this.darkMode);
+                    this.$nextTick(() => {
+                        ['editor-input', 'editor-output'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) hljsHighlight(el);
+                        });
+                    });
+                },
+
+                /* ── internals ── */
+                _setOut(val, elOut, gutOut) {
+                    this._lockOut = true;
+                    this._jOut && this._jOut.updateCode(val);
+                    this._lockOut = false;
+                    buildGutter(elOut, gutOut);
+                },
+
+                _setState(status, statusText, errorMsg, stats) {
+                    this.status = status;
+                    this.statusText = statusText;
+                    this.errorMsg = errorMsg;
+                    this.stats = stats;
+                },
+
+                countKeys(obj, n = 0) {
+                    if (typeof obj !== 'object' || obj === null) return n;
+                    if (Array.isArray(obj)) obj.forEach(v => { n = this.countKeys(v, n); });
+                    else Object.keys(obj).forEach(k => { n++; n = this.countKeys(obj[k], n); });
+                    return n;
+                },
+
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    const el = this.$refs.toast;
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateX(-50%) translateY(0)';
+                    setTimeout(() => {
+                        el.style.opacity = '0';
+                        el.style.transform = 'translateX(-50%) translateY(-4px)';
+                    }, 2000);
+                },
+
+                startDrag() { this.dragging = true; },
+                stopDrag() { if (this.dragging) { lsSet(LS.WIDTH, this.leftWidth.toFixed(2)); } this.dragging = false; },
+                onDrag(e) {
+                    if (!this.dragging) return;
+                    const rect = document.getElementById('split-container').getBoundingClientRect();
+                    this.leftWidth = Math.min(Math.max(((e.clientX - rect.left) / rect.width) * 100, 20), 80);
+                },
+            };
         }
     </script>
 </body>

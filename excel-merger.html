@@ -1,289 +1,665 @@
 <!DOCTYPE html>
-<html lang="id" x-data="excelMerger()" :class="{ 'dark': isDarkMode }">
+<html lang="id" x-data="excelMerger()" :class="{ 'dark': darkMode }">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel Merger Tool</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Excel Merger</title>
 
-    <script defer src="assets/js/alpine.min.js"></script>
-    <script src="assets/js/tailwindcss.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['DM Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(8px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                    },
+                    animation: {
+                        fadeIn: 'fadeIn 0.3s ease-out forwards',
+                    }
+                }
+            }
         }
     </script>
-    <script src="assets/js/xlsx.full.min.js"></script>
-    <link href="assets/css/material-icons.css" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
-        /* CSS murni untuk menangani scrollbar styling sesuai tema (Dark/Light) */
-        .custom-scrollbar::-webkit-scrollbar {
+        body {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .drag-over {
+            border-color: #22c55e !important;
+            background-color: rgba(34, 197, 94, 0.06) !important;
+        }
+
+        .file-card {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        ::-webkit-scrollbar {
             width: 6px;
         }
 
-        .custom-scrollbar::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
             background: transparent;
         }
 
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 8px;
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 9999px;
         }
 
-        html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        .dark ::-webkit-scrollbar-thumb {
             background: #475569;
         }
 
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+        @keyframes progress-stripe {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: 40px 0;
+            }
         }
 
-        html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
+        .progress-bar {
+            background-image: linear-gradient(45deg,
+                    rgba(255, 255, 255, .2) 25%, transparent 25%,
+                    transparent 50%, rgba(255, 255, 255, .2) 50%,
+                    rgba(255, 255, 255, .2) 75%, transparent 75%, transparent);
+            background-size: 40px 40px;
+            animation: progress-stripe 1s linear infinite;
+        }
+
+        .noise-bg::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Sheet tag pill */
+        .sheet-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            background: rgba(34, 197, 94, 0.12);
+            color: #16a34a;
+        }
+
+        .dark .sheet-pill {
+            background: rgba(34, 197, 94, 0.18);
+            color: #4ade80;
+        }
+
+        /* Mode toggle chip */
+        .mode-chip {
+            cursor: pointer;
+            user-select: none;
+            transition: all .2s;
         }
     </style>
 </head>
 
 <body
-    class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300 font-sans p-4 md:p-8">
+    class="noise-bg min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300"
+    @dragover.prevent @drop.prevent>
+    <div class="relative z-10 max-w-3xl mx-auto px-4 py-10 space-y-8">
 
-    <div class="max-w-3xl mx-auto">
-        <header
-            class="flex justify-between items-center mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center space-x-2">
-                <span class="material-icons text-green-600 dark:text-green-400 text-3xl">table_chart</span>
-                <h1 class="text-2xl font-bold tracking-tight">Mini Excel Merger</h1>
+        <!-- ── Header ── -->
+        <header class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/30">
+                    <span class="material-icons-round text-white text-xl">table_chart</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight leading-none">Excel Merger</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Gabungkan beberapa spreadsheet jadi
+                        satu file</p>
+                </div>
             </div>
-            <button @click="toggleDarkMode()"
-                class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition" title="Toggle Dark Mode">
-                <span class="material-icons" x-text="isDarkMode ? 'light_mode' : 'dark_mode'"></span>
+            <button @click="darkMode = !darkMode"
+                class="w-9 h-9 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                :title="darkMode ? 'Mode Terang' : 'Mode Gelap'">
+                <span class="material-icons-round text-slate-600 dark:text-slate-300 text-[18px]"
+                    x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
             </button>
         </header>
 
-        <main
-            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 md:p-8">
-
-            <div class="mb-8 relative rounded-lg" @dragover.prevent="isDragging = true"
-                @dragleave.prevent="isDragging = false" @drop.prevent="isDragging = false; handleDrop($event)">
-                <label
-                    :class="{'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-400': isDragging, 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700': !isDragging}"
-                    class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition">
-                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                        <span class="material-icons text-gray-400 dark:text-gray-300 text-4xl mb-2">upload_file</span>
-                        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Klik untuk
-                                memilih</span> atau tarik file Excel</p>
+        <!-- ── Merge Mode Selector ── -->
+        <div
+            class="bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm space-y-3">
+            <div class="flex items-center gap-2">
+                <span class="material-icons-round text-brand-500 text-[18px]">tune</span>
+                <h2 class="font-semibold text-sm">Mode Penggabungan</h2>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <!-- Mode 1: Sheets -->
+                <label class="mode-chip flex items-start gap-3 p-3 rounded-xl border-2 transition-colors cursor-pointer"
+                    :class="mergeMode === 'sheets'
+          ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+          : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700'">
+                    <input type="radio" x-model="mergeMode" value="sheets" class="hidden" />
+                    <div class="mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                        :class="mergeMode === 'sheets' ? 'border-brand-500' : 'border-slate-300 dark:border-slate-600'">
+                        <div x-show="mergeMode === 'sheets'" class="w-2 h-2 rounded-full bg-brand-500"></div>
                     </div>
-                    <input type="file" class="hidden" multiple accept=".xlsx, .xls, .csv" @change="handleFileSelect" />
+                    <div>
+                        <p class="font-semibold text-sm"
+                            :class="mergeMode === 'sheets' ? 'text-brand-600 dark:text-brand-400' : ''">Per Sheet
+                            (Direkomendasikan)</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Setiap sheet dari setiap file
+                            disalin ke workbook baru. Nama sheet dipertahankan.</p>
+                    </div>
+                </label>
+
+                <!-- Mode 2: Stack Rows -->
+                <label class="mode-chip flex items-start gap-3 p-3 rounded-xl border-2 transition-colors cursor-pointer"
+                    :class="mergeMode === 'stack'
+          ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+          : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700'">
+                    <input type="radio" x-model="mergeMode" value="stack" class="hidden" />
+                    <div class="mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                        :class="mergeMode === 'stack' ? 'border-brand-500' : 'border-slate-300 dark:border-slate-600'">
+                        <div x-show="mergeMode === 'stack'" class="w-2 h-2 rounded-full bg-brand-500"></div>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-sm"
+                            :class="mergeMode === 'stack' ? 'text-brand-600 dark:text-brand-400' : ''">Tumpuk Baris
+                            (Stack Rows)</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Semua baris dari sheet pertama tiap
+                            file digabung vertikal ke 1 sheet.</p>
+                    </div>
                 </label>
             </div>
 
-            <div x-show="errorMessage" x-transition
-                class="w-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-lg flex items-start gap-2 mb-6 text-sm border border-red-100 dark:border-red-800/50">
-                <span class="material-icons text-base mt-0.5">error</span>
-                <span x-text="errorMessage"></span>
+            <!-- Stack mode options -->
+            <div x-show="mergeMode === 'stack'" x-transition class="flex items-center gap-3 pt-1">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" x-model="skipHeader" class="w-4 h-4 rounded accent-brand-500" />
+                    Lewati baris header (kecuali file pertama)
+                </label>
+            </div>
+        </div>
+
+        <!-- ── Drop Zone ── -->
+        <div @dragover.prevent="isDragOver = true" @dragleave.prevent="isDragOver = false"
+            @drop.prevent="handleDrop($event)" @click="$refs.fileInput.click()" :class="isDragOver ? 'drag-over' : ''"
+            class="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-brand-400 dark:hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/5 transition-all duration-200 group">
+            <div
+                class="w-14 h-14 rounded-2xl bg-brand-500/10 flex items-center justify-center group-hover:bg-brand-500/20 transition-colors">
+                <span class="material-icons-round text-brand-500 text-3xl">upload_file</span>
+            </div>
+            <div class="text-center">
+                <p class="font-semibold text-slate-700 dark:text-slate-200">Seret & lepas file Excel di sini</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">atau <span
+                        class="text-brand-500 font-medium">klik untuk memilih file</span></p>
+            </div>
+            <p class="text-xs text-slate-400 dark:text-slate-500 font-mono">.xlsx • .xls • .csv • .ods • Bisa pilih
+                banyak</p>
+            <input type="file" x-ref="fileInput" accept=".xlsx,.xls,.csv,.ods" multiple class="hidden"
+                @change="handleFileInput($event)" />
+        </div>
+
+        <!-- ── File List ── -->
+        <div x-show="files.length > 0" x-transition class="space-y-4">
+
+            <!-- List Header -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="material-icons-round text-brand-500 text-[18px]">layers</span>
+                    <h2 class="font-semibold text-sm">
+                        Daftar File
+                        <span
+                            class="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold"
+                            x-text="files.length"></span>
+                    </h2>
+                </div>
+                <button @click="clearAll()"
+                    class="text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                    <span class="material-icons-round text-[14px]">delete_sweep</span>
+                    Hapus Semua
+                </button>
             </div>
 
-            <div x-show="files.length > 0" class="mb-6" x-transition>
-                <div class="flex justify-between items-end mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
-                    <h2 class="text-lg font-semibold">Urutan Dokumen</h2>
-                    <span class="text-sm text-gray-500 dark:text-gray-400"
-                        x-text="files.length + ' file dipilih'"></span>
-                </div>
+            <p class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                <span class="material-icons-round text-[14px]">swap_vert</span>
+                Gunakan tombol panah untuk mengatur urutan file
+            </p>
 
-                <ul class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                    <template x-for="(fileItem, index) in files" :key="fileItem.id">
-                        <li
-                            class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+            <!-- File Cards -->
+            <div class="space-y-2.5">
+                <template x-for="(file, index) in files" :key="file.id">
+                    <div
+                        class="file-card bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:shadow-md transition-shadow">
 
-                            <div class="flex items-center overflow-hidden mr-4">
-                                <span class="material-icons text-green-600 dark:text-green-400 mr-3">table_chart</span>
-                                <div class="truncate">
-                                    <p class="text-sm font-medium truncate" x-text="fileItem.name"></p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="fileItem.size"></p>
+                        <!-- Top Row -->
+                        <div class="flex items-center gap-3 px-4 py-3">
+                            <!-- Icon -->
+                            <div class="shrink-0 relative">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="file.ext === 'csv'
+                  ? 'bg-blue-50 dark:bg-blue-500/10'
+                  : 'bg-green-50 dark:bg-green-500/10'">
+                                    <span class="material-icons-round text-xl"
+                                        :class="file.ext === 'csv' ? 'text-blue-500' : 'text-green-600 dark:text-green-400'"
+                                        x-text="file.ext === 'csv' ? 'article' : 'table_chart'"></span>
+                                </div>
+                                <!-- sheet count badge -->
+                                <template x-if="file.sheetCount !== null">
+                                    <span
+                                        class="absolute -bottom-1.5 -right-1.5 text-[9px] font-bold font-mono bg-slate-700 dark:bg-slate-600 text-white rounded-full px-1.5 py-0.5 leading-none"
+                                        x-text="file.sheetCount + 's'"></span>
+                                </template>
+                            </div>
+
+                            <!-- Name & Meta -->
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate text-slate-800 dark:text-slate-100"
+                                    x-text="file.name"></p>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <p class="text-xs text-slate-400 dark:text-slate-500 font-mono"
+                                        x-text="formatSize(file.size)"></p>
+                                    <template x-if="file.rowCount !== null">
+                                        <span class="text-xs text-slate-400 dark:text-slate-500">·</span>
+                                    </template>
+                                    <template x-if="file.rowCount !== null">
+                                        <p class="text-xs text-slate-400 dark:text-slate-500 font-mono"
+                                            x-text="file.rowCount.toLocaleString('id') + ' baris'"></p>
+                                    </template>
                                 </div>
                             </div>
 
-                            <div class="flex items-center space-x-1 shrink-0">
+                            <!-- Order Badge -->
+                            <div
+                                class="shrink-0 w-6 h-6 rounded-full bg-brand-500/10 dark:bg-brand-500/20 flex items-center justify-center">
+                                <span class="text-[11px] font-bold text-brand-600 dark:text-brand-400"
+                                    x-text="index + 1"></span>
+                            </div>
+
+                            <!-- Move Buttons -->
+                            <div class="flex flex-col gap-0.5 shrink-0">
                                 <button @click="moveUp(index)" :disabled="index === 0"
-                                    class="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 transition">
-                                    <span class="material-icons text-xl">arrow_upward</span>
+                                    class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                                    <span class="material-icons-round text-[16px]">expand_less</span>
                                 </button>
                                 <button @click="moveDown(index)" :disabled="index === files.length - 1"
-                                    class="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 transition">
-                                    <span class="material-icons text-xl">arrow_downward</span>
-                                </button>
-                                <button @click="removeFile(index)"
-                                    class="p-1 rounded text-gray-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition ml-2">
-                                    <span class="material-icons text-xl">delete</span>
+                                    class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                                    <span class="material-icons-round text-[16px]">expand_more</span>
                                 </button>
                             </div>
-                        </li>
-                    </template>
-                </ul>
+
+                            <!-- Delete -->
+                            <button @click="removeFile(index)"
+                                class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                                <span class="material-icons-round text-[18px]">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Sheet Tags (Per Sheet mode) -->
+                        <template x-if="mergeMode === 'sheets' && file.sheetNames && file.sheetNames.length > 0">
+                            <div class="px-4 pb-3 flex flex-wrap gap-1.5">
+                                <template x-for="sheet in file.sheetNames" :key="sheet">
+                                    <span class="sheet-pill">
+                                        <span class="material-icons-round" style="font-size:10px">grid_on</span>
+                                        <span x-text="sheet"></span>
+                                    </span>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Loading indicator -->
+                        <template x-if="file.loading">
+                            <div class="px-4 pb-3">
+                                <div class="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full w-1/2 bg-brand-400 rounded-full animate-pulse"></div>
+                                </div>
+                            </div>
+                        </template>
+
+                    </div>
+                </template>
             </div>
 
-            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p x-show="files.length > 0 && files.length < 2" class="text-sm text-amber-600 dark:text-amber-400">
-                    Pilih minimal 2 file.
-                </p>
-                <div x-show="files.length === 0 || files.length >= 2"></div>
-                <div class="flex space-x-3">
-                    <button x-show="files.length > 0" @click="clearFiles" :disabled="isProcessing"
-                        class="flex items-center space-x-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium py-2.5 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                        <span class="material-icons">delete_sweep</span>
-                        <span class="hidden sm:inline">Reset</span>
-                    </button>
+            <!-- Add More -->
+            <button @click="$refs.fileInput.click()"
+                class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-sm text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-500 dark:hover:border-brand-500 dark:hover:text-brand-400 transition-colors">
+                <span class="material-icons-round text-[16px]">add</span>
+                Tambah File Lagi
+            </button>
+        </div>
 
-                    <button @click="mergeFiles" :disabled="files.length < 2 || isProcessing"
-                        class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg transition disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed shadow-sm">
-                        <span class="material-icons" x-show="!isProcessing && !isDone">call_merge</span>
-                        <span class="material-icons" :class="{'animate-spin': isProcessing}"
-                            x-show="isProcessing">hourglass_empty</span>
-                        <span class="material-icons" x-show="isDone && !isProcessing">check_circle</span>
-                        <span x-text="buttonText"></span>
-                    </button>
+        <!-- ── Summary Bar ── -->
+        <div x-show="files.length > 0" x-transition
+            class="bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+            <div class="flex-1 grid grid-cols-3 gap-3 text-center">
+                <div>
+                    <p class="text-2xl font-bold text-brand-500" x-text="files.length"></p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">File</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-brand-500" x-text="totalSheets"></p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5"
+                        x-text="mergeMode === 'stack' ? 'Kolom' : 'Total Sheet'"></p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-brand-500" x-text="formatSize(totalSize)"></p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Total Ukuran</p>
                 </div>
             </div>
+        </div>
 
-        </main>
+        <!-- ── Merge Controls ── -->
+        <div x-show="files.length >= 2" x-transition class="space-y-3">
+
+            <!-- Output Filename -->
+            <div
+                class="flex items-center gap-2 bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 shadow-sm">
+                <span class="material-icons-round text-slate-400 text-[18px]">drive_file_rename_outline</span>
+                <input type="text" x-model="outputFilename" placeholder="Nama file output..."
+                    class="flex-1 bg-transparent text-sm outline-none placeholder-slate-400 dark:placeholder-slate-500 text-slate-700 dark:text-slate-200" />
+                <span class="text-xs text-slate-400 font-mono">.xlsx</span>
+            </div>
+
+            <!-- Merge Button -->
+            <button @click="mergeFiles()" :disabled="isMerging"
+                class="w-full py-4 rounded-2xl bg-brand-500 hover:bg-brand-600 active:bg-brand-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-brand-500/30 hover:shadow-brand-600/30 transition-all duration-200">
+                <template x-if="!isMerging">
+                    <span class="material-icons-round text-[20px]">merge_type</span>
+                </template>
+                <template x-if="isMerging">
+                    <svg class="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3" />
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="white" stroke-width="3" stroke-linecap="round" />
+                    </svg>
+                </template>
+                <span x-text="isMerging ? 'Sedang Menggabungkan...' : 'Gabungkan & Unduh Excel'"></span>
+            </button>
+
+            <!-- Progress -->
+            <div x-show="isMerging" class="space-y-1.5">
+                <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span x-text="progressLabel"></span>
+                    <span x-text="progress + '%'"></span>
+                </div>
+                <div class="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-brand-500 progress-bar rounded-full transition-all duration-300"
+                        :style="'width:' + progress + '%'"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hint -->
+        <div x-show="files.length === 1" x-transition
+            class="text-center text-sm text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
+            <span class="material-icons-round text-[16px]">info</span>
+            Tambahkan minimal 2 file untuk bisa menggabungkan
+        </div>
+
+        <!-- ── Toast ── -->
+        <div x-show="toast.show" x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-4"
+            :class="toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'"
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 text-white text-sm font-medium px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 z-50 min-w-[200px] justify-center">
+            <span class="material-icons-round text-[18px]"
+                x-text="toast.type === 'success' ? 'check_circle' : 'error'"></span>
+            <span x-text="toast.message"></span>
+        </div>
+
+        <!-- ── Footer ── -->
+        <footer
+            class="text-center text-xs text-slate-400 dark:text-slate-600 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <p>Semua proses terjadi <span class="font-medium text-slate-500 dark:text-slate-500">langsung di browser
+                    Anda</span> • Tidak ada data yang dikirim ke server</p>
+        </footer>
+
     </div>
 
     <script>
         function excelMerger() {
             return {
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+                isDragOver: false,
                 files: [],
-                isProcessing: false,
-                isDone: false,
-                errorMessage: '',
-                isDragging: false,
-                isDarkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+                mergeMode: 'sheets',   // 'sheets' | 'stack'
+                skipHeader: true,
+                isMerging: false,
+                progress: 0,
+                progressLabel: '',
+                outputFilename: 'gabungan',
+                toast: { show: false, type: 'success', message: '' },
 
-                init() {
-                    if (localStorage.getItem('darkMode') === 'true') {
-                        this.isDarkMode = true;
-                    } else if (localStorage.getItem('darkMode') === 'false') {
-                        this.isDarkMode = false;
+                // ── Computed ──────────────────────────────────────
+                get totalSheets() {
+                    if (this.mergeMode === 'stack') {
+                        // tampilkan total baris
+                        return this.files.reduce((s, f) => s + (f.rowCount || 0), 0).toLocaleString('id');
+                    }
+                    return this.files.reduce((s, f) => s + (f.sheetCount || 0), 0);
+                },
+                get totalSize() {
+                    return this.files.reduce((s, f) => s + f.size, 0);
+                },
+
+                // ── File Handling ─────────────────────────────────
+                handleDrop(e) {
+                    this.isDragOver = false;
+                    const allowed = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'application/vnd.ms-excel', 'text/csv', 'application/vnd.oasis.opendocument.spreadsheet', ''];
+                    const items = [...e.dataTransfer.files].filter(f => {
+                        const ext = f.name.split('.').pop().toLowerCase();
+                        return ['xlsx', 'xls', 'csv', 'ods'].includes(ext);
+                    });
+                    if (!items.length) { this.showToast('error', 'Format tidak didukung. Gunakan .xlsx, .xls, .csv, atau .ods'); return; }
+                    this.addFiles(items);
+                },
+
+                handleFileInput(e) {
+                    this.addFiles([...e.target.files]);
+                    e.target.value = '';
+                },
+
+                async addFiles(newFiles) {
+                    for (const f of newFiles) {
+                        const exists = this.files.some(x => x.name === f.name && x.size === f.size);
+                        if (exists) continue;
+                        const ext = f.name.split('.').pop().toLowerCase();
+                        const id = Date.now() + Math.random();
+                        const entry = { id, name: f.name, size: f.size, ext, sheetCount: null, sheetNames: [], rowCount: null, rawFile: f, loading: true };
+                        this.files.push(entry);
+                        this.inspectFile(f, id);
                     }
                 },
 
-                toggleDarkMode() {
-                    this.isDarkMode = !this.isDarkMode;
-                    localStorage.setItem('darkMode', this.isDarkMode);
-                },
-
-                get buttonText() {
-                    if (this.isProcessing) return 'Memproses...';
-                    if (this.isDone) return 'Selesai! Unduh Lainnya?';
-                    return 'Gabungkan';
-                },
-
-                handleFileSelect(event) {
-                    this.addFiles(event.target.files);
-                    event.target.value = '';
-                },
-
-                handleDrop(event) {
-                    this.addFiles(event.dataTransfer.files);
-                },
-
-                addFiles(newFiles) {
-                    this.errorMessage = '';
-                    this.isDone = false;
-
-                    for (let i = 0; i < newFiles.length; i++) {
-                        let file = newFiles[i];
-                        if (file.name.match(/\.(xlsx|xls|csv)$/i)) {
-                            let sizeStr = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-                            if (file.size < 1024 * 1024) {
-                                sizeStr = (file.size / 1024).toFixed(2) + ' KB';
-                            }
-                            this.files.push({
-                                id: Date.now() + Math.random().toString(36).substring(7) + i,
-                                name: file.name,
-                                size: sizeStr,
-                                file: file
-                            });
-                        } else {
-                            this.errorMessage = 'Beberapa file diabaikan karena format tidak didukung.';
+                async inspectFile(file, id) {
+                    try {
+                        const buf = await file.arrayBuffer();
+                        const wb = XLSX.read(buf, { type: 'array', sheetRows: 2 }); // sheetRows limit for speed
+                        const idx = this.files.findIndex(f => f.id === id);
+                        if (idx === -1) return;
+                        this.files[idx].sheetNames = wb.SheetNames;
+                        this.files[idx].sheetCount = wb.SheetNames.length;
+                        // Count rows of first sheet without loading everything
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const ref = ws['!ref'];
+                        if (ref) {
+                            // Parse full for row count — re-read with no limit
+                            const buf2 = await file.arrayBuffer();
+                            const wb2 = XLSX.read(buf2, { type: 'array' });
+                            const ws2 = wb2.Sheets[wb2.SheetNames[0]];
+                            const data = XLSX.utils.sheet_to_json(ws2, { header: 1 });
+                            this.files[idx].rowCount = Math.max(0, data.filter(r => r.some(c => c !== null && c !== '')).length - 1);
                         }
+                        this.files[idx].loading = false;
+                        this.files = [...this.files]; // trigger reactivity
+                    } catch (e) {
+                        const idx = this.files.findIndex(f => f.id === id);
+                        if (idx !== -1) { this.files[idx].loading = false; this.files[idx].sheetCount = '?'; }
                     }
                 },
 
-                removeFile(index) {
-                    this.files.splice(index, 1);
-                    this.isDone = false;
-                },
-
-                clearFiles() {
-                    if (confirm("Apakah Anda yakin ingin menghapus semua file dari daftar?")) {
-                        this.files = [];
-                        this.errorMessage = '';
-                        this.isDone = false;
-                    }
-                },
+                removeFile(index) { this.files.splice(index, 1); },
+                clearAll() { this.files = []; },
 
                 moveUp(index) {
-                    if (index > 0) {
-                        const temp = this.files[index - 1];
-                        this.files[index - 1] = this.files[index];
-                        this.files[index] = temp;
-                        this.isDone = false;
-                    }
+                    if (index === 0) return;
+                    [this.files[index - 1], this.files[index]] = [this.files[index], this.files[index - 1]];
+                    this.files = [...this.files];
                 },
-
                 moveDown(index) {
-                    if (index < this.files.length - 1) {
-                        const temp = this.files[index + 1];
-                        this.files[index + 1] = this.files[index];
-                        this.files[index] = temp;
-                        this.isDone = false;
-                    }
+                    if (index === this.files.length - 1) return;
+                    [this.files[index + 1], this.files[index]] = [this.files[index], this.files[index + 1]];
+                    this.files = [...this.files];
                 },
 
+                // ── Merge ─────────────────────────────────────────
                 async mergeFiles() {
-                    if (this.files.length < 2) return;
-
-                    this.isProcessing = true;
-                    this.errorMessage = '';
-                    this.isDone = false;
+                    if (this.isMerging || this.files.length < 2) return;
+                    this.isMerging = true;
+                    this.progress = 0;
+                    this.progressLabel = 'Mempersiapkan...';
 
                     try {
-                        const newWb = XLSX.utils.book_new();
-                        const existingSheetNames = new Set();
+                        const mergedWb = XLSX.utils.book_new();
+                        const total = this.files.length;
 
-                        for (let i = 0; i < this.files.length; i++) {
-                            const item = this.files[i];
-                            const arrayBuffer = await item.file.arrayBuffer();
-                            const wb = XLSX.read(arrayBuffer, { type: 'array' });
+                        if (this.mergeMode === 'sheets') {
+                            // ── Mode 1: Copy semua sheet per file ──
+                            const usedNames = new Set();
 
-                            wb.SheetNames.forEach(name => {
-                                const sheet = wb.Sheets[name];
-                                let newName = name;
-                                let counter = 1;
+                            for (let i = 0; i < total; i++) {
+                                const file = this.files[i];
+                                this.progressLabel = `Memproses: ${file.name}`;
+                                this.progress = Math.round((i / total) * 90);
 
-                                while (existingSheetNames.has(newName)) {
-                                    const suffix = `_${counter}`;
-                                    const baseName = name.substring(0, 31 - suffix.length);
-                                    newName = `${baseName}${suffix}`;
-                                    counter++;
+                                const buf = await file.rawFile.arrayBuffer();
+                                const wb = XLSX.read(buf, { type: 'array' });
+
+                                for (const sheetName of wb.SheetNames) {
+                                    const ws = wb.Sheets[sheetName];
+                                    // Buat nama unik jika bentrok
+                                    let finalName = sheetName.substring(0, 28); // Excel max 31 chars
+                                    if (usedNames.has(finalName)) {
+                                        const suffix = ` (${i + 1})`;
+                                        finalName = finalName.substring(0, 31 - suffix.length) + suffix;
+                                    }
+                                    // Jika masih bentrok, tambah counter
+                                    let counter = 2;
+                                    let tentative = finalName;
+                                    while (usedNames.has(tentative)) {
+                                        tentative = finalName.substring(0, 28) + `_${counter++}`;
+                                    }
+                                    finalName = tentative;
+                                    usedNames.add(finalName);
+                                    XLSX.utils.book_append_sheet(mergedWb, ws, finalName);
                                 }
+                                await new Promise(r => setTimeout(r, 20));
+                            }
 
-                                existingSheetNames.add(newName);
-                                XLSX.utils.book_append_sheet(newWb, sheet, newName);
-                            });
+                        } else {
+                            // ── Mode 2: Stack semua baris ke 1 sheet ──
+                            let combinedData = [];
+
+                            for (let i = 0; i < total; i++) {
+                                const file = this.files[i];
+                                this.progressLabel = `Memproses: ${file.name}`;
+                                this.progress = Math.round((i / total) * 90);
+
+                                const buf = await file.rawFile.arrayBuffer();
+                                const wb = XLSX.read(buf, { type: 'array' });
+                                const ws = wb.Sheets[wb.SheetNames[0]]; // ambil sheet pertama
+                                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+                                if (i === 0) {
+                                    combinedData = rows;
+                                } else {
+                                    // Skip header row jika diinginkan
+                                    const startRow = this.skipHeader && rows.length > 0 ? 1 : 0;
+                                    combinedData = combinedData.concat(rows.slice(startRow));
+                                }
+                                await new Promise(r => setTimeout(r, 20));
+                            }
+
+                            const mergedWs = XLSX.utils.aoa_to_sheet(combinedData);
+                            XLSX.utils.book_append_sheet(mergedWb, mergedWs, 'Gabungan');
                         }
 
-                        XLSX.writeFile(newWb, `Merged_Excel_${new Date().getTime()}.xlsx`);
-                        this.isDone = true;
+                        this.progressLabel = 'Menyimpan file...';
+                        this.progress = 95;
+                        await new Promise(r => setTimeout(r, 100));
 
-                    } catch (error) {
-                        console.error(error);
-                        this.errorMessage = 'Terjadi kesalahan saat memproses file. Pastikan file Excel tidak rusak (corrupt).';
+                        // Download
+                        const fname = (this.outputFilename.trim() || 'gabungan') + '.xlsx';
+                        XLSX.writeFile(mergedWb, fname);
+                        this.progress = 100;
+
+                        const modeLabel = this.mergeMode === 'sheets' ? 'sheet' : 'baris';
+                        this.showToast('success', `Berhasil! ${total} file digabungkan`);
+
+                    } catch (err) {
+                        console.error(err);
+                        this.showToast('error', 'Gagal menggabungkan. Periksa file Anda.');
                     } finally {
-                        this.isProcessing = false;
+                        await new Promise(r => setTimeout(r, 600));
+                        this.isMerging = false;
+                        this.progress = 0;
                     }
-                }
-            }
+                },
+
+                // ── Helpers ───────────────────────────────────────
+                formatSize(bytes) {
+                    if (!bytes) return '—';
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / 1048576).toFixed(2) + ' MB';
+                },
+                showToast(type, message) {
+                    this.toast = { show: true, type, message };
+                    setTimeout(() => { this.toast.show = false; }, 3500);
+                },
+            };
         }
     </script>
 </body>

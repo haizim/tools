@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="id" x-data="excelMerger()" :class="{ 'dark': isDarkMode }">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Merger Tool</title>
+
+    <script defer src="assets/js/alpine.min.js"></script>
+    <script src="assets/js/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="assets/js/xlsx.full.min.js"></script>
+    <link href="assets/css/material-icons.css" rel="stylesheet">
+    <style>
+        /* CSS murni untuk menangani scrollbar styling sesuai tema (Dark/Light) */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+
+        html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300 font-sans p-4 md:p-8">
+
+    <div class="max-w-3xl mx-auto">
+        <header
+            class="flex justify-between items-center mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center space-x-2">
+                <span class="material-icons text-green-600 dark:text-green-400 text-3xl">table_chart</span>
+                <h1 class="text-2xl font-bold tracking-tight">Mini Excel Merger</h1>
+            </div>
+            <button @click="toggleDarkMode()"
+                class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition" title="Toggle Dark Mode">
+                <span class="material-icons" x-text="isDarkMode ? 'light_mode' : 'dark_mode'"></span>
+            </button>
+        </header>
+
+        <main
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 md:p-8">
+
+            <div class="mb-8 relative rounded-lg" @dragover.prevent="isDragging = true"
+                @dragleave.prevent="isDragging = false" @drop.prevent="isDragging = false; handleDrop($event)">
+                <label
+                    :class="{'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-400': isDragging, 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700': !isDragging}"
+                    class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <span class="material-icons text-gray-400 dark:text-gray-300 text-4xl mb-2">upload_file</span>
+                        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Klik untuk
+                                memilih</span> atau tarik file Excel</p>
+                    </div>
+                    <input type="file" class="hidden" multiple accept=".xlsx, .xls, .csv" @change="handleFileSelect" />
+                </label>
+            </div>
+
+            <div x-show="errorMessage" x-transition
+                class="w-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-lg flex items-start gap-2 mb-6 text-sm border border-red-100 dark:border-red-800/50">
+                <span class="material-icons text-base mt-0.5">error</span>
+                <span x-text="errorMessage"></span>
+            </div>
+
+            <div x-show="files.length > 0" class="mb-6" x-transition>
+                <div class="flex justify-between items-end mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    <h2 class="text-lg font-semibold">Urutan Dokumen</h2>
+                    <span class="text-sm text-gray-500 dark:text-gray-400"
+                        x-text="files.length + ' file dipilih'"></span>
+                </div>
+
+                <ul class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    <template x-for="(fileItem, index) in files" :key="fileItem.id">
+                        <li
+                            class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+
+                            <div class="flex items-center overflow-hidden mr-4">
+                                <span class="material-icons text-green-600 dark:text-green-400 mr-3">table_chart</span>
+                                <div class="truncate">
+                                    <p class="text-sm font-medium truncate" x-text="fileItem.name"></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="fileItem.size"></p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-1 shrink-0">
+                                <button @click="moveUp(index)" :disabled="index === 0"
+                                    class="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 transition">
+                                    <span class="material-icons text-xl">arrow_upward</span>
+                                </button>
+                                <button @click="moveDown(index)" :disabled="index === files.length - 1"
+                                    class="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 transition">
+                                    <span class="material-icons text-xl">arrow_downward</span>
+                                </button>
+                                <button @click="removeFile(index)"
+                                    class="p-1 rounded text-gray-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition ml-2">
+                                    <span class="material-icons text-xl">delete</span>
+                                </button>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p x-show="files.length > 0 && files.length < 2" class="text-sm text-amber-600 dark:text-amber-400">
+                    Pilih minimal 2 file.
+                </p>
+                <div x-show="files.length === 0 || files.length >= 2"></div>
+                <div class="flex space-x-3">
+                    <button x-show="files.length > 0" @click="clearFiles" :disabled="isProcessing"
+                        class="flex items-center space-x-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium py-2.5 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                        <span class="material-icons">delete_sweep</span>
+                        <span class="hidden sm:inline">Reset</span>
+                    </button>
+
+                    <button @click="mergeFiles" :disabled="files.length < 2 || isProcessing"
+                        class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg transition disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed shadow-sm">
+                        <span class="material-icons" x-show="!isProcessing && !isDone">call_merge</span>
+                        <span class="material-icons" :class="{'animate-spin': isProcessing}"
+                            x-show="isProcessing">hourglass_empty</span>
+                        <span class="material-icons" x-show="isDone && !isProcessing">check_circle</span>
+                        <span x-text="buttonText"></span>
+                    </button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function excelMerger() {
+            return {
+                files: [],
+                isProcessing: false,
+                isDone: false,
+                errorMessage: '',
+                isDragging: false,
+                isDarkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+
+                init() {
+                    if (localStorage.getItem('darkMode') === 'true') {
+                        this.isDarkMode = true;
+                    } else if (localStorage.getItem('darkMode') === 'false') {
+                        this.isDarkMode = false;
+                    }
+                },
+
+                toggleDarkMode() {
+                    this.isDarkMode = !this.isDarkMode;
+                    localStorage.setItem('darkMode', this.isDarkMode);
+                },
+
+                get buttonText() {
+                    if (this.isProcessing) return 'Memproses...';
+                    if (this.isDone) return 'Selesai! Unduh Lainnya?';
+                    return 'Gabungkan';
+                },
+
+                handleFileSelect(event) {
+                    this.addFiles(event.target.files);
+                    event.target.value = '';
+                },
+
+                handleDrop(event) {
+                    this.addFiles(event.dataTransfer.files);
+                },
+
+                addFiles(newFiles) {
+                    this.errorMessage = '';
+                    this.isDone = false;
+
+                    for (let i = 0; i < newFiles.length; i++) {
+                        let file = newFiles[i];
+                        if (file.name.match(/\.(xlsx|xls|csv)$/i)) {
+                            let sizeStr = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+                            if (file.size < 1024 * 1024) {
+                                sizeStr = (file.size / 1024).toFixed(2) + ' KB';
+                            }
+                            this.files.push({
+                                id: Date.now() + Math.random().toString(36).substring(7) + i,
+                                name: file.name,
+                                size: sizeStr,
+                                file: file
+                            });
+                        } else {
+                            this.errorMessage = 'Beberapa file diabaikan karena format tidak didukung.';
+                        }
+                    }
+                },
+
+                removeFile(index) {
+                    this.files.splice(index, 1);
+                    this.isDone = false;
+                },
+
+                clearFiles() {
+                    if (confirm("Apakah Anda yakin ingin menghapus semua file dari daftar?")) {
+                        this.files = [];
+                        this.errorMessage = '';
+                        this.isDone = false;
+                    }
+                },
+
+                moveUp(index) {
+                    if (index > 0) {
+                        const temp = this.files[index - 1];
+                        this.files[index - 1] = this.files[index];
+                        this.files[index] = temp;
+                        this.isDone = false;
+                    }
+                },
+
+                moveDown(index) {
+                    if (index < this.files.length - 1) {
+                        const temp = this.files[index + 1];
+                        this.files[index + 1] = this.files[index];
+                        this.files[index] = temp;
+                        this.isDone = false;
+                    }
+                },
+
+                async mergeFiles() {
+                    if (this.files.length < 2) return;
+
+                    this.isProcessing = true;
+                    this.errorMessage = '';
+                    this.isDone = false;
+
+                    try {
+                        const newWb = XLSX.utils.book_new();
+                        const existingSheetNames = new Set();
+
+                        for (let i = 0; i < this.files.length; i++) {
+                            const item = this.files[i];
+                            const arrayBuffer = await item.file.arrayBuffer();
+                            const wb = XLSX.read(arrayBuffer, { type: 'array' });
+
+                            wb.SheetNames.forEach(name => {
+                                const sheet = wb.Sheets[name];
+                                let newName = name;
+                                let counter = 1;
+
+                                while (existingSheetNames.has(newName)) {
+                                    const suffix = `_${counter}`;
+                                    const baseName = name.substring(0, 31 - suffix.length);
+                                    newName = `${baseName}${suffix}`;
+                                    counter++;
+                                }
+
+                                existingSheetNames.add(newName);
+                                XLSX.utils.book_append_sheet(newWb, sheet, newName);
+                            });
+                        }
+
+                        XLSX.writeFile(newWb, `Merged_Excel_${new Date().getTime()}.xlsx`);
+                        this.isDone = true;
+
+                    } catch (error) {
+                        console.error(error);
+                        this.errorMessage = 'Terjadi kesalahan saat memproses file. Pastikan file Excel tidak rusak (corrupt).';
+                    } finally {
+                        this.isProcessing = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
