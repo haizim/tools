@@ -169,7 +169,7 @@
             </div>
 
             <div class="lg:col-span-8 flex flex-col">
-                <div
+                <div id="output"
                     class="bg-white dark:bg-darkCard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex-1 min-h-[400px] flex items-center justify-center relative overflow-hidden p-4">
 
                     <div x-show="!outputImage && !isGenerating" class="text-center text-gray-400">
@@ -571,7 +571,8 @@
                     this.prompt = item.prompt;
                     this.outputImage = item.output;
                     this.resultId = item.id || ''; // Load ID for downloads from history
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    // window.scrollTo({ top: 0, behavior: 'smooth' });
+                    document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
                 }
             }
         }
