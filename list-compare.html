@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" x-data="appData()" :class="{ dark: dark }">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>List Compare</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        textarea,
+        .mono {
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        /* Scrollbar */
+        textarea::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        textarea::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 3px;
+        }
+
+        .dark textarea::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        /* Animated badge count */
+        @keyframes popIn {
+            0% {
+                transform: scale(0.6);
+                opacity: 0;
+            }
+
+            70% {
+                transform: scale(1.15);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .badge-pop {
+            animation: popIn 0.25s ease-out forwards;
+        }
+
+        /* Subtle grid bg */
+        .grid-bg {
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .dark .grid-bg {
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+        }
+
+        /* Tag chip */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen bg-slate-50 dark:bg-slate-950 grid-bg transition-colors duration-300">
+
+    <div class="max-w-6xl mx-auto px-4 py-10">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-10">
+            <div>
+                <h1
+                    class="text-2xl font-semibold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
+                    <span class="material-icons-round text-indigo-500 text-2xl">difference</span>
+                    List Compare
+                </h1>
+                <p class="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Paste two lists — find what's unique to
+                    each</p>
+            </div>
+
+            <!-- Dark Mode Toggle -->
+            <button @click="dark = !dark"
+                class="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                :title="dark ? 'Light mode' : 'Dark mode'">
+                <span class="material-icons-round text-[18px]" x-text="dark ? 'light_mode' : 'dark_mode'"></span>
+            </button>
+        </div>
+
+        <!-- Options Bar -->
+        <div class="flex flex-wrap gap-4 mb-6 items-center">
+            <label
+                class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                <div @click="caseSensitive = !caseSensitive; compare()"
+                    class="w-9 h-5 rounded-full relative transition-colors duration-200 cursor-pointer"
+                    :class="caseSensitive ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'">
+                    <div class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-transform duration-200 shadow-sm"
+                        :class="caseSensitive ? 'translate-x-4' : 'translate-x-0.5'" style="top: 3px; left: 2px;"></div>
+                </div>
+                Case sensitive
+            </label>
+
+            <label
+                class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                <div @click="trimWhitespace = !trimWhitespace; compare()"
+                    class="w-9 h-5 rounded-full relative transition-colors duration-200 cursor-pointer"
+                    :class="trimWhitespace ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'">
+                    <div class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-transform duration-200 shadow-sm"
+                        :class="trimWhitespace ? 'translate-x-4' : 'translate-x-0.5'" style="top: 3px; left: 2px;">
+                    </div>
+                </div>
+                Trim whitespace
+            </label>
+
+            <label
+                class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                <div @click="ignoreEmpty = !ignoreEmpty; compare()"
+                    class="w-9 h-5 rounded-full relative transition-colors duration-200 cursor-pointer"
+                    :class="ignoreEmpty ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'">
+                    <div class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-transform duration-200 shadow-sm"
+                        :class="ignoreEmpty ? 'translate-x-4' : 'translate-x-0.5'" style="top: 3px; left: 2px;"></div>
+                </div>
+                Ignore empty lines
+            </label>
+
+            <button @click="clearAll()"
+                class="ml-auto flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors">
+                <span class="material-icons-round text-[15px]">delete_outline</span>
+                Clear all
+            </button>
+        </div>
+
+        <!-- Main Grid: Inputs + Outputs -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            <!-- List A Input -->
+            <div class="group">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="chip bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300">LIST
+                            A</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 mono"
+                            x-text="countLines(listA) + ' lines'"></span>
+                    </div>
+                    <button @click="listA = ''; compare()"
+                        class="text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors">
+                        <span class="material-icons-round text-[16px]">close</span>
+                    </button>
+                </div>
+                <textarea x-model="listA" @input="compare()" rows="12"
+                    placeholder="apple&#10;banana&#10;cherry&#10;date"
+                    class="w-full mono text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-2xl px-4 py-3 text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 dark:focus:border-indigo-500 resize-y transition-all shadow-sm"></textarea>
+            </div>
+
+            <!-- List B Input -->
+            <div class="group">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="chip bg-violet-100 dark:bg-violet-900/60 text-violet-600 dark:text-violet-300">LIST
+                            B</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 mono"
+                            x-text="countLines(listB) + ' lines'"></span>
+                    </div>
+                    <button @click="listB = ''; compare()"
+                        class="text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors">
+                        <span class="material-icons-round text-[16px]">close</span>
+                    </button>
+                </div>
+                <textarea x-model="listB" @input="compare()" rows="12"
+                    placeholder="banana&#10;cherry&#10;elderberry&#10;fig"
+                    class="w-full mono text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-2xl px-4 py-3 text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-400 dark:focus:border-violet-500 resize-y transition-all shadow-sm"></textarea>
+            </div>
+
+            <!-- Only in A Output -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="chip bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">ONLY IN
+                            A</span>
+                        <span :key="onlyInA.length" class="badge-pop chip bg-amber-500 text-white"
+                            x-show="onlyInA.length > 0" x-text="onlyInA.length"></span>
+                    </div>
+                    <button @click="copyToClipboard(onlyInA.join('\n'), 'a')"
+                        class="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+                        x-show="onlyInA.length > 0">
+                        <span class="material-icons-round text-[14px]"
+                            x-text="copiedA ? 'check' : 'content_copy'"></span>
+                        <span x-text="copiedA ? 'Copied!' : 'Copy'"></span>
+                    </button>
+                </div>
+                <textarea readonly :value="onlyInA.join('\n')" rows="12"
+                    :placeholder="listA || listB ? 'No unique items in List A' : 'Results appear here…'"
+                    class="w-full mono text-sm bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 rounded-2xl px-4 py-3 text-amber-900 dark:text-amber-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none resize-y transition-all shadow-sm cursor-default"></textarea>
+            </div>
+
+            <!-- Only in B Output -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="chip bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300">ONLY IN
+                            B</span>
+                        <span :key="onlyInB.length" class="badge-pop chip bg-teal-500 text-white"
+                            x-show="onlyInB.length > 0" x-text="onlyInB.length"></span>
+                    </div>
+                    <button @click="copyToClipboard(onlyInB.join('\n'), 'b')"
+                        class="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-teal-500 dark:hover:text-teal-400 transition-colors"
+                        x-show="onlyInB.length > 0">
+                        <span class="material-icons-round text-[14px]"
+                            x-text="copiedB ? 'check' : 'content_copy'"></span>
+                        <span x-text="copiedB ? 'Copied!' : 'Copy'"></span>
+                    </button>
+                </div>
+                <textarea readonly :value="onlyInB.join('\n')" rows="12"
+                    :placeholder="listA || listB ? 'No unique items in List B' : 'Results appear here…'"
+                    class="w-full mono text-sm bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200/80 dark:border-teal-800/40 rounded-2xl px-4 py-3 text-teal-900 dark:text-teal-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none resize-y transition-all shadow-sm cursor-default"></textarea>
+            </div>
+        </div>
+
+        <!-- Stats Footer -->
+        <div class="mt-5 flex flex-wrap gap-4 justify-center text-xs text-slate-400 dark:text-slate-600"
+            x-show="listA || listB">
+            <span class="flex items-center gap-1">
+                <span class="material-icons-round text-[13px]">join_inner</span>
+                <span x-text="commonCount"></span> in common
+            </span>
+            <span class="text-slate-300 dark:text-slate-700">·</span>
+            <span class="flex items-center gap-1 text-amber-400 dark:text-amber-600">
+                <span class="material-icons-round text-[13px]">arrow_left</span>
+                <span x-text="onlyInA.length"></span> only in A
+            </span>
+            <span class="text-slate-300 dark:text-slate-700">·</span>
+            <span class="flex items-center gap-1 text-teal-400 dark:text-teal-600">
+                <span class="material-icons-round text-[13px]">arrow_right</span>
+                <span x-text="onlyInB.length"></span> only in B
+            </span>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        function appData() {
+            return {
+                dark: true,
+                listA: '',
+                listB: '',
+                onlyInA: [],
+                onlyInB: [],
+                commonCount: 0,
+                caseSensitive: false,
+                trimWhitespace: true,
+                ignoreEmpty: true,
+                copiedA: false,
+                copiedB: false,
+
+                parse(raw) {
+                    let lines = raw.split('\n');
+                    if (this.trimWhitespace) lines = lines.map(l => l.trim());
+                    if (this.ignoreEmpty) lines = lines.filter(l => l !== '');
+                    if (!this.caseSensitive) lines = lines.map(l => l.toLowerCase());
+                    return lines;
+                },
+
+                compare() {
+                    const a = this.parse(this.listA);
+                    const b = this.parse(this.listB);
+                    const setA = new Set(a);
+                    const setB = new Set(b);
+
+                    this.onlyInA = [...new Set(a.filter(x => !setB.has(x)))];
+                    this.onlyInB = [...new Set(b.filter(x => !setA.has(x)))];
+                    this.commonCount = [...new Set(a.filter(x => setB.has(x)))].length;
+                },
+
+                countLines(text) {
+                    if (!text.trim()) return 0;
+                    return text.split('\n').filter(l => !this.ignoreEmpty || l.trim() !== '').length;
+                },
+
+                copyToClipboard(text, which) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        if (which === 'a') {
+                            this.copiedA = true;
+                            setTimeout(() => this.copiedA = false, 1800);
+                        } else {
+                            this.copiedB = true;
+                            setTimeout(() => this.copiedB = false, 1800);
+                        }
+                    });
+                },
+
+                clearAll() {
+                    this.listA = '';
+                    this.listB = '';
+                    this.onlyInA = [];
+                    this.onlyInB = [];
+                    this.commonCount = 0;
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
