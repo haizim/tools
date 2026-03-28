@@ -5,6 +5,23 @@ Kumpulan tools berbasis web sederhana yang dibuat untuk membantu berbagai tugas 
 
 ### List Tool
 
+***index.php***
+
+Halaman utama untuk navigasi ke berbagai tools yang tersedia.
+
+Fitur :
+- Auto-list Files : Secara otomatis mendeteksi dan menampilkan file di direktori.
+- Navigasi Cepat : Link langsung ke setiap tool di dalam proyek.
+
+***excel-merger.html***
+
+Alat untuk menggabungkan beberapa file Excel menjadi satu.
+
+Fitur :
+- Seret & lepas (Drag & Drop) banyak file Excel.
+- Informasi total file, sheet, dan ukuran file.
+- Proses penggabungan langsung di sisi klien (browser).
+
 ***html-formatter.html***
 
 Alat untuk memformat dan meminifikasi kode HTML.
@@ -26,13 +43,23 @@ Fitur :
 - Mobile View : Simulasi tampilan pada perangkat seluler.
 - Fullscreen View : Tampilan penuh untuk fokus maksimal.
 
-***index.php***
+***img2pdf.html***
 
-Halaman utama untuk navigasi ke berbagai tools yang tersedia.
+Konversi file gambar menjadi format dokumen PDF.
 
 Fitur :
-- Auto-list Files : Secara otomatis mendeteksi dan menampilkan file di direktori.
-- Navigasi Cepat : Link langsung ke setiap tool di dalam proyek.
+- Mendukung berbagai format gambar (JPG, PNG, WEBP, GIF, BMP).
+- Bisa memproses banyak file gambar sekaligus.
+- Urutkan gambar dan atur orientasi sesuai kebutuhan sebelum dikonversi.
+
+***invoice.html***
+
+Generator tagihan atau invoice (MWH Invoice Tracker).
+
+Fitur :
+- Form dinamis untuk mengisi detail pelanggan, tanggal jatuh tempo, dan item.
+- Tersedia opsi untuk menyimpan atau mencetak invoice secara langsung ke bentuk PDF.
+- Tampilan antarmuka yang modern, responsif, dan elegan.
 
 ***json-analyzer.html***
 
@@ -67,6 +94,24 @@ Fitur :
 - Live Edit : Edit data JSON dan lihat pembaruan visual secara real-time.
 - Dark/Light Mode : Mendukung tema gelap dan terang.
 
+***json-transformer.html***
+
+Alat untuk mentransformasi dan memodifikasi struktur JSON.
+
+Fitur :
+- Transformasi data JSON yang kompleks dengan cepat.
+- Editor kode interaktif untuk manipulasi data payload JSON.
+- UI yang adaptif dan sederhana untuk proses konversi antar node/field.
+
+***list-compare.html***
+
+Aplikasi komparasi dua daftar (list) teks atau objek.
+
+Fitur :
+- Bandingkan dua buah list secara efisien sekaligus cek perbedaannya.
+- Menyoroti nilai-nilai yang sama atau yang hanya ada di salah satu versi list.
+- Tampilan berdampingan (side-by-side) untuk evaluasi yang lebih jelas.
+
 ***openrouter-client.html***
 
 Klien chat antarmuka web untuk berinteraksi dengan berbagai model AI melalui OpenRouter API.
@@ -78,54 +123,126 @@ Fitur :
 - Streaming Response : Respon yang muncul secara bertahap (real-time).
 - Markdown Rendering : Menampilkan kode dan teks format dengan indah.
 
-***print-termal-tes.html***
+***openrouter-image.html***
 
-Generator halaman tes untuk printer thermal (struk).
+Klien mini OpenRouter untuk berinteraksi dengan fitur pembuatan gambar AI.
 
 Fitur :
-- Dukungan Ukuran : Mendukung lebar kertas 58mm dan 80mm.
-- Pengaturan Layout : Kustomisasi margin dan ukuran font secara dinamis.
-- Pola Tes : Cetak pola alignment dan density untuk cek kondisi head printer.
-- Area Barcode : Area placeholder untuk menguji kualitas cetak barcode.
+- Masukkan prompt teks untuk digenerasikan menjadi gambar.
+- Penyimpanan mandiri di penyimpanan lokal browser agar riwayat tidak hilang.
+- Mendukung mode gelap/terang antarmuka secara adaptif.
+
+***openrouter-img-edit.html***
+
+Editor gambar interaktif dengan dukungan AI via OpenRouter.
+
+Fitur :
+- Memodifikasi atau memperbaiki area pada gambar dengan deskripsi teks prompt.
+- Penyimpanan di IndexedDB (IDB) agar file gambar dan riwayat edit berukuran besar dapat tersimpan tangguh tanpa backend.
+- Mendukung format web umum (.jpg, .png).
+
+***password-generator.html***
+
+Generator password (PassForge) untuk menghasilkan kata sandi yang aman.
+
+Fitur :
+- Pengaturan kustom panjang kata sandi dan pemilihan format karakter (huruf, angka, simbol).
+- Mode "Human Readable": membatasi jumlah deret konsonan agar kata sandi sedikit lebih gampang diingat atau dieja.
+- Fasilitas salin sekali tekan (one-click copy) yang cerdas.
+
+***pdf-merger.html***
+
+Aplikasi praktis untuk menggabungkan beberapa file dokumen PDF.
+
+Fitur :
+- Interaksi Drag & drop untuk menyusun beberapa PDF lalu digabungkan secara instan.
+- Proses berjalan tanpa cloud upload atau server tambahan (privacy first).
+- Desain antaramuka yang intuitif dan minimalis di beragam kondisi pencahayaan.
+
+***print-termal-tes.html***
+
+Generator halaman tes cetak untuk mesin printer thermal (struk atau kasir).
+
+Fitur :
+- Dukungan Ukuran : Mendukung lebar kertas standar 58mm dan 80mm.
+- Pengaturan Layout : Kustomisasi margin dasar dan pengaturan skala tulisan.
+- Pola Tes Terotomatisasi : Cetak pola alignment dan density untuk cek head kualitas dot.
+- Integrasi kode batang (barcode) untuk uji respon mesin pencetak.
 
 ***print-tes.html***
 
-Generator halaman tes cetak standar untuk printer A4.
+Generator halaman kalibrasi/tes uji cetak standar untuk printer kartrid ukuran A4.
 
 Fitur :
-- Tes Warna : Area warna CMYK dan RGB untuk kalibrasi warna printer.
-- Tes Ketajaman Teks : teks berbagai ukuran (6pt - 14pt) untuk uji kejelasan.
-- Grid Alignment : Pola grid untuk memastikan keselarasan dan margin cetakan.
-- Info Tanggal : Menampilkan waktu dan tanggal pencetakan secara otomatis.
+- Tes Warna Mendasar : Area warna CMYK dan RGB yang padat untuk kalibrasi tintanya.
+- Uji Ketajaman Resolusi : Teks berbagai dimensi poin (6pt - 14pt) melayani perbaikan presisi tulisan.
+- Layout dan Pola Grid : Mengonfirmasi apakah margin dan presisi pencetakan berada lurus di pusat.
+- Opsi Informasi : Tanggal dan jam pembuatan stiker tes otomatis dirender.
 
 ***spreadsheet-analyzer.html***
 
-Alat analisis file spreadsheet (.xlsx, .csv) berbantuan AI.
+Alat pintar untuk mengulas dan memproses file spreadsheet komersial(.xlsx, .csv) dengan bantuan AI.
 
 Fitur :
-- Import File : Dukungan untuk membaca file Excel (.xlsx) dan CSV.
-- Tampilan Data Tabel : Preview data spreadsheet dalam bentuk tabel interaktif.
-- Chat dengan AI : Analisis data spreadsheet dengan bertanya pada AI (data terlampir di prompt).
-- Model Selector : Pilih model AI yang diinginkan via OpenRouter.
-- Dark Mode : Tema gelap untuk kenyamanan mata.
+- Import Cepat : Pemuatan sel interaktif dari file eksternal (Excel / CSV).
+- Tampilan Tabel Transparan : Cek kembali masukan tabel langsung persis menyerupai kalkulasi kolom.
+- Prompter AI Intuitif: Beri kueri langsung terhadap struktur tabel lewat OpenRouter.
+- Pilihan model model AI teratas dari ragam sumber yang disediakan pengembang.
+- Dark theme friendly.
+
+***string-exp.html***
+
+Alat manipulasi dan penjelajahan rentetan data string (String Explorer).
+
+Fitur :
+- Pilihan konversi variasi teks: case changer (Camel/Kebab/Snake), Regex, trimming, escaping komprehensif, dst.
+- Pratinjau mutlak (absolute real-time preview) sewaktu data inti diketik.
+- Dukungan klik-salin cepat setelah string siap dan diformat sempurna.
 
 ***table-converter.html***
 
-Editor tabel visual dengan kemampuan ekspor ke berbagai format kode.
+Editor tabel visual dengan kemampuan ekspor meluas ke berbagai tipe bahasa atau notasi struktur.
 
 Fitur :
-- Live Table Editor : Edit isi tabel secara visual (tambah/hapus baris & kolom).
-- Import Data : Paste data langsung dari Excel atau Google Sheets.
-- Ekspor Multi-Format : Konversi tabel ke Markdown, JSON, HTML, atau XML.
-- Dark Mode : Tampilan antarmuka yang modern dan responsif.
+- Live Table Editor : Edit dimensi tabel secara manual (atur lebar sel, tambah/hapus baris & kolom).
+- Dukungan Pasang Langsung: Mampu menerima masukan data Copy-Paste dari aplikasi Office/Google Sheets.
+- Ekspor Variatif Interaktif : Unduh maupun salin cepat tabel output berformat Markdown, JSON, HTML, hingga XML.
+- Skema palet antarmuka yang modern dan responsif buat web.
+
+***tailwind-editor-fomantic.html***
+
+Editor halaman visual berbantu framework paduan elemen UI Fomantic & Tailwind CSS.
+
+Fitur :
+- Lingkungan pengeditan dokumen HTML yang langsung digambar oleh WYSIWYG editor interaktif.
+- Mendukung pembaruan style terfokus lewat kelas utilitas sintaks Tailwind sekaligus komponen kaya yang ditawarkan Fomantic.
+- Unduh struktur HTML paripurna usai revisi tampilan beres.
 
 ***todo-list.html***
 
-Aplikasi manajemen tugas (Todo List) dengan fitur pengelompokan.
+Aplikasi manajemen papan dan tugas harian (Alpine Todo Pro) dengan fitur multi-pengelompokan canggih.
 
 Fitur :
-- Pengelompokan Tugas (Groups) : Organisasi tugas ke dalam kategori atau proyek.
-- Drag & Drop : Urutkan ulang tugas atau grup sesuai prioritas.
-- Progress Tracking : Visual bar kemajuan penyelesaian tugas per grup.
-- Penyimpanan Lokal : Data tersimpan persisten di LocalStorage browser.
-- Dark Mode : Antarmuka yang adaptif dan ramah di mata.
+- Pengelompokan Tugas (Groups) tingkat lanjut : Kustomisasi papan agenda ke tiap blok spesifik.
+- Fungsionalitas Drag & Drop : Kemudahan pengaturan ulang hierarki tugas di daftar dengan menarik objek sembarangan.
+- Bar Progress Dinamis : Lacak seberapa tuntas beban kerja dari persen progress per kelompok.
+- Local Storage Support : Agenda selalu utuh meski halaman ditinggalkan lewat localStorage.
+- Kombinasi Tema Gelap eksklusif guna melindung mata pada jam produktivitas malam.
+
+***wavespeed-img-edit.html***
+
+Klien khusus sistem WaveSpeed untuk penyuntingan parameter gambar dari sisi peramban.
+
+Fitur :
+- Utilitas meremodel konfigurasi dan format gambar tanpa wajib mengupload ke peladen daring (backend upload).
+- Tampilan desain bersih dengan skema respons instan (instant-feedback loops).
+- Mudah menavigasikan pengalihan varian gelap/cerah demi pengalaman penyunting terbaik.
+
+***yt-playlist-extractor.html***
+
+Tool khusus penarik dan pengutip (Extractor) link daftar putar / Playlist YouTube.
+
+Fitur :
+- Proses kolektif cepat mengeruk seluruh metadata (judul dan id/URL) dari video terdaftar di dalam referensi halaman playlist spesifik.
+- Presentasi data ringkas menjadi luaran daftar tautan yang bebas disalin gampang.
+- Alternatif efisien bagi kurator media konten supaya bisa mendokumentasikan listnya otomatis ke aplikasi perangkum pribadi (semisal CSV maupun markdown notebook).
