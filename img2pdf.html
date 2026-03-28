@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en" x-data="app()" :class="{ dark: darkMode }">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image → PDF</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet" />
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <!-- PDF-lib (UMD) -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        * {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        h1,
+        h2,
+        .font-display {
+            font-family: 'Syne', sans-serif;
+        }
+
+        /* Drop zone animated border */
+        @keyframes border-dance {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .drop-active {
+            background-size: 200% 200%;
+            animation: border-dance 2s linear infinite;
+        }
+
+        /* Card hover lift */
+        .img-card {
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .img-card:hover {
+            transform: translateY(-3px);
+        }
+
+        /* Sortable drag ghost */
+        .dragging {
+            opacity: 0.4;
+        }
+
+        /* Progress bar animate */
+        @keyframes progress-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .6;
+            }
+        }
+
+        .progress-pulse {
+            animation: progress-pulse 1.2s ease infinite;
+        }
+
+        /* Scrollbar slim */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen bg-slate-50 dark:bg-[#0f1117] text-slate-800 dark:text-slate-100 transition-colors duration-300">
+
+    <!-- ───────────────────────── HEADER ───────────────────────── -->
+    <header
+        class="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-[#0f1117]/80 backdrop-blur-md">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="material-icons-round text-indigo-500 text-xl">picture_as_pdf</span>
+                <span class="font-display text-lg font-bold tracking-tight">
+                    img<span class="text-indigo-500">→</span>pdf
+                </span>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Page size selector -->
+                <select x-model="pageSize"
+                    class="text-xs font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
+                    <option value="A4">A4</option>
+                    <option value="Letter">Letter</option>
+                    <option value="fit">Fit image</option>
+                </select>
+                <!-- Orientation toggle (only relevant for A4/Letter) -->
+                <button @click="landscape = !landscape" x-show="pageSize !== 'fit'"
+                    :title="landscape ? 'Landscape' : 'Portrait'"
+                    class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 transition-colors">
+                    <span class="material-icons-round text-base"
+                        :style="landscape ? 'transform:rotate(90deg)' : ''">crop_portrait</span>
+                </button>
+                <!-- Dark mode -->
+                <button @click="darkMode = !darkMode"
+                    class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 transition-colors">
+                    <span class="material-icons-round text-base" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ───────────────────────── MAIN ───────────────────────── -->
+    <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+        <!-- Drop Zone -->
+        <div @dragover.prevent="draggingOver = true" @dragleave.prevent="draggingOver = false"
+            @drop.prevent="handleDrop($event)" @click="$refs.fileInput.click()" :class="draggingOver
+        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 drop-active'
+        : 'border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500'"
+            class="relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-10 flex flex-col items-center justify-center gap-3 text-center">
+
+            <div class="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                <span class="material-icons-round text-indigo-500 text-3xl">add_photo_alternate</span>
+            </div>
+            <div>
+                <p class="font-semibold text-base">Drop images here or <span class="text-indigo-500">browse</span></p>
+                <p class="text-xs text-slate-400 mt-1">JPG, PNG, WEBP, GIF, BMP — multiple files supported</p>
+            </div>
+            <input x-ref="fileInput" type="file" accept="image/*" multiple class="hidden"
+                @change="handleFileInput($event)" />
+        </div>
+
+        <!-- Image Grid -->
+        <div x-show="images.length > 0" x-transition>
+
+            <!-- Toolbar -->
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-sm text-slate-500 dark:text-slate-400 font-mono">
+                    <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="images.length"></span>
+                    image<span x-show="images.length > 1">s</span>
+                    &nbsp;·&nbsp; drag to reorder
+                </p>
+                <button @click="images = []"
+                    class="text-xs flex items-center gap-1 text-slate-400 hover:text-red-500 transition-colors">
+                    <span class="material-icons-round text-sm">delete_sweep</span> Clear all
+                </button>
+            </div>
+
+            <!-- Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <template x-for="(img, idx) in images" :key="img.id">
+                    <div class="img-card relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm group"
+                        draggable="true" @dragstart="dragStart(idx)" @dragover.prevent="dragOver(idx)"
+                        @dragend="dragEnd()" :class="dragIdx === idx ? 'dragging' : ''">
+
+                        <!-- Thumbnail -->
+                        <div class="aspect-[3/4] bg-slate-100 dark:bg-slate-700">
+                            <img :src="img.preview" :alt="img.name" class="w-full h-full object-cover" />
+                        </div>
+
+                        <!-- Order badge -->
+                        <div
+                            class="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold font-mono flex items-center justify-center shadow">
+                            <span x-text="idx + 1"></span>
+                        </div>
+
+                        <!-- Actions overlay -->
+                        <div
+                            class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <button @click.stop="moveLeft(idx)" x-show="idx > 0"
+                                class="p-1 rounded-lg bg-white/20 hover:bg-white/40 text-white transition-colors backdrop-blur-sm">
+                                <span class="material-icons-round text-sm">chevron_left</span>
+                            </button>
+                            <button @click.stop="remove(idx)"
+                                class="p-1 rounded-lg bg-red-500/80 hover:bg-red-500 text-white transition-colors">
+                                <span class="material-icons-round text-sm">close</span>
+                            </button>
+                            <button @click.stop="moveRight(idx)" x-show="idx < images.length - 1"
+                                class="p-1 rounded-lg bg-white/20 hover:bg-white/40 text-white transition-colors backdrop-blur-sm">
+                                <span class="material-icons-round text-sm">chevron_right</span>
+                            </button>
+                        </div>
+
+                        <!-- Name -->
+                        <div class="px-2 py-1.5 border-t border-slate-100 dark:border-slate-700">
+                            <p class="text-[10px] font-mono text-slate-400 truncate" x-text="img.name"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Convert Button -->
+        <div x-show="images.length > 0" x-transition class="flex flex-col items-center gap-4 pt-2">
+
+            <!-- Filename input -->
+            <div class="flex items-center gap-2 w-full max-w-sm">
+                <div
+                    class="flex-1 flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
+                    <span class="material-icons-round text-slate-400 text-base">edit</span>
+                    <input x-model="filename" type="text" placeholder="output filename"
+                        class="flex-1 text-sm font-mono bg-transparent focus:outline-none placeholder-slate-400" />
+                </div>
+                <span class="text-sm text-slate-400 font-mono">.pdf</span>
+            </div>
+
+            <!-- Progress bar -->
+            <div x-show="converting" class="w-full max-w-sm">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Processing…</span>
+                    <span x-text="progressLabel"></span>
+                </div>
+                <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-indigo-500 rounded-full progress-pulse transition-all duration-300"
+                        :style="`width: ${progress}%`"></div>
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <button @click="convert()" :disabled="converting"
+                class="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-sm bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white shadow-lg shadow-indigo-500/30 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">
+                <span class="material-icons-round text-base"
+                    x-text="converting ? 'hourglass_top' : 'picture_as_pdf'"></span>
+                <span
+                    x-text="converting ? 'Converting…' : `Convert ${images.length} image${images.length > 1 ? 's' : ''} to PDF`"></span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- ───────────────────────── TOAST ───────────────────────── -->
+    <div x-show="toast.show" x-transition.opacity
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl text-sm font-medium"
+        :class="toast.type === 'success'
+      ? 'bg-emerald-500 text-white'
+      : 'bg-red-500 text-white'">
+        <span class="material-icons-round text-base"
+            x-text="toast.type === 'success' ? 'check_circle' : 'error'"></span>
+        <span x-text="toast.message"></span>
+    </div>
+
+    <!-- ───────────────────────── SCRIPT ───────────────────────── -->
+    <script>
+        function app() {
+            return {
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+                draggingOver: false,
+                images: [],
+                dragIdx: null,
+                dragTargetIdx: null,
+                converting: false,
+                progress: 0,
+                progressLabel: '',
+                filename: 'images',
+                pageSize: 'A4',
+                landscape: false,
+                toast: { show: false, message: '', type: 'success' },
+                _toastTimer: null,
+                _idCounter: 0,
+
+                handleDrop(e) {
+                    this.draggingOver = false;
+                    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+                    this.loadFiles(files);
+                },
+
+                handleFileInput(e) {
+                    const files = [...e.target.files];
+                    this.loadFiles(files);
+                    e.target.value = '';
+                },
+
+                loadFiles(files) {
+                    files.forEach(file => {
+                        const id = ++this._idCounter;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.images.push({ id, name: file.name, preview: e.target.result, dataUrl: e.target.result });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                },
+
+                remove(idx) { this.images.splice(idx, 1); },
+                moveLeft(idx) { if (idx > 0) { [this.images[idx], this.images[idx - 1]] = [this.images[idx - 1], this.images[idx]]; this.images = [...this.images]; } },
+                moveRight(idx) { if (idx < this.images.length - 1) { [this.images[idx], this.images[idx + 1]] = [this.images[idx + 1], this.images[idx]]; this.images = [...this.images]; } },
+
+                // Drag-to-reorder
+                dragStart(idx) { this.dragIdx = idx; },
+                dragOver(idx) {
+                    if (this.dragIdx === null || this.dragIdx === idx) return;
+                    const arr = [...this.images];
+                    const [moved] = arr.splice(this.dragIdx, 1);
+                    arr.splice(idx, 0, moved);
+                    this.images = arr;
+                    this.dragIdx = idx;
+                },
+                dragEnd() { this.dragIdx = null; },
+
+                // ──── Core PDF generation ────
+                async convert() {
+                    if (!this.images.length || this.converting) return;
+                    this.converting = true;
+                    this.progress = 0;
+
+                    try {
+                        const { PDFDocument } = PDFLib;
+                        const pdf = await PDFDocument.create();
+                        const total = this.images.length;
+
+                        // Fixed page dimensions
+                        const pageSizes = {
+                            A4: [595.28, 841.89],
+                            Letter: [612, 792],
+                        };
+
+                        for (let i = 0; i < total; i++) {
+                            this.progressLabel = `${i + 1} / ${total}`;
+                            this.progress = Math.round(((i) / total) * 90);
+
+                            const img = this.images[i];
+                            const dataUrl = img.dataUrl;
+                            const base64 = dataUrl.split(',')[1];
+                            const mimeType = dataUrl.split(';')[0].split(':')[1];
+
+                            let pdfImage;
+                            // pdf-lib natively supports JPEG and PNG; for others convert via canvas
+                            if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+                                const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                                pdfImage = await pdf.embedJpg(bytes);
+                            } else if (mimeType === 'image/png') {
+                                const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                                pdfImage = await pdf.embedPng(bytes);
+                            } else {
+                                // Convert to PNG via canvas
+                                const pngBase64 = await this.toPng(dataUrl);
+                                const bytes = Uint8Array.from(atob(pngBase64), c => c.charCodeAt(0));
+                                pdfImage = await pdf.embedPng(bytes);
+                            }
+
+                            const imgW = pdfImage.width;
+                            const imgH = pdfImage.height;
+
+                            let pageW, pageH;
+
+                            if (this.pageSize === 'fit') {
+                                pageW = imgW;
+                                pageH = imgH;
+                            } else {
+                                [pageW, pageH] = pageSizes[this.pageSize] || pageSizes['A4'];
+                                if (this.landscape) [pageW, pageH] = [pageH, pageW];
+                            }
+
+                            const page = pdf.addPage([pageW, pageH]);
+
+                            // Scale image to fill page (letterbox)
+                            const scale = Math.min(pageW / imgW, pageH / imgH);
+                            const drawW = imgW * scale;
+                            const drawH = imgH * scale;
+                            const x = (pageW - drawW) / 2;
+                            const y = (pageH - drawH) / 2;
+
+                            page.drawImage(pdfImage, { x, y, width: drawW, height: drawH });
+
+                            // Yield to UI
+                            await new Promise(r => setTimeout(r, 0));
+                        }
+
+                        this.progress = 95;
+                        const bytes = await pdf.save();
+                        this.progress = 100;
+
+                        // Download
+                        const blob = new Blob([bytes], { type: 'application/pdf' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = (this.filename.trim() || 'images') + '.pdf';
+                        a.click();
+                        URL.revokeObjectURL(url);
+
+                        this.showToast(`PDF saved — ${total} page${total > 1 ? 's' : ''}`, 'success');
+                    } catch (err) {
+                        console.error(err);
+                        this.showToast('Conversion failed: ' + err.message, 'error');
+                    } finally {
+                        this.converting = false;
+                        this.progress = 0;
+                        this.progressLabel = '';
+                    }
+                },
+
+                // Convert any image to PNG via canvas (for unsupported formats)
+                toPng(dataUrl) {
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            canvas.getContext('2d').drawImage(img, 0, 0);
+                            resolve(canvas.toDataURL('image/png').split(',')[1]);
+                        };
+                        img.onerror = reject;
+                        img.src = dataUrl;
+                    });
+                },
+
+                showToast(message, type = 'success') {
+                    clearTimeout(this._toastTimer);
+                    this.toast = { show: true, message, type };
+                    this._toastTimer = setTimeout(() => { this.toast.show = false; }, 3000);
+                },
+            };
+        }
+    </script>
+</body>
+
+</html>
