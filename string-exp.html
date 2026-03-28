@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ darkMode: localStorage.getItem('theme') === 'dark' }" :class="{ 'dark': darkMode }"
+    x-init="$watch('darkMode', v => localStorage.setItem('theme', v ? 'dark' : 'light'))">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>String Explorer</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Syne', sans-serif;
+        }
+
+        .mono {
+            font-family: 'Space Mono', monospace;
+        }
+
+        .tab-active {
+            background: #0f172a;
+            color: #f1f5f9;
+        }
+
+        .dark .tab-active {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .result-card {
+            transition: all 0.15s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-1px);
+        }
+
+        .input-field {
+            font-family: 'Space Mono', monospace;
+            outline: none;
+        }
+
+        .copy-flash {
+            animation: flash 0.4s ease;
+        }
+
+        @keyframes flash {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+
+        /* Subtle grid bg */
+        .grid-bg {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .dark .grid-bg {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 grid-bg"
+    x-data="stringExplorer()">
+
+    <!-- Header -->
+    <header
+        class="sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-slate-900 dark:bg-slate-100 rounded-lg flex items-center justify-center">
+                    <span class="material-icons-round text-slate-100 dark:text-slate-900 text-lg">data_object</span>
+                </div>
+                <div>
+                    <h1 class="font-display font-800 text-base leading-none tracking-tight">String Explorer</h1>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 mono mt-0.5">JS String Methods Lab</p>
+                </div>
+            </div>
+            <button @click="darkMode = !darkMode"
+                class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <span class="material-icons-round text-lg" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-5">
+
+        <!-- Input -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+            <label
+                class="text-xs font-700 uppercase tracking-widest text-slate-400 dark:text-slate-500 mono block mb-3">Input
+                String</label>
+            <div class="relative">
+                <textarea x-model="inputStr" @input="compute()"
+                    class="input-field w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-300 focus:border-transparent transition-all"
+                    rows="3" placeholder="Type your string here..."></textarea>
+                <div class="absolute bottom-3 right-3 mono text-xs text-slate-300 dark:text-slate-600"
+                    x-text="inputStr.length + ' chars'"></div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex flex-wrap gap-2">
+            <template x-for="(tab, i) in tabs" :key="i">
+                <button @click="activeTab = i; compute()"
+                    :class="activeTab === i ? 'tab-active shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600'"
+                    class="px-4 py-2 rounded-xl text-sm font-display font-600 transition-all flex items-center gap-1.5">
+                    <span class="material-icons-round text-base" x-text="tab.icon"></span>
+                    <span x-text="tab.label"></span>
+                </button>
+            </template>
+        </div>
+
+        <!-- Operations Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" x-show="activeTab !== null">
+
+            <template x-for="(op, idx) in currentOps" :key="op.id">
+                <div
+                    class="result-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+
+                    <!-- Op Header -->
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <p class="mono text-xs font-700 text-slate-900 dark:text-slate-100"
+                                x-text="'.' + op.name + '()'"></p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5" x-text="op.desc"></p>
+                        </div>
+                        <button @click="copyResult(op)" :title="'Copy result'"
+                            class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex-shrink-0">
+                            <span class="material-icons-round text-sm"
+                                x-text="op.copied ? 'check' : 'content_copy'"></span>
+                        </button>
+                    </div>
+
+                    <!-- Dynamic Params -->
+                    <div class="space-y-2 mb-3" x-show="op.params && op.params.length > 0">
+                        <template x-for="(param, pi) in (op.params || [])" :key="pi">
+                            <div>
+                                <label class="mono text-xs text-slate-400 dark:text-slate-500 block mb-1"
+                                    x-text="param.label"></label>
+                                <input type="text" x-model="param.value" @input="compute()"
+                                    :placeholder="param.placeholder"
+                                    class="input-field w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400 focus:border-transparent transition-all" />
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Result -->
+                    <div class="bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2.5 min-h-[36px] flex items-center">
+                        <template x-if="op.error">
+                            <span class="mono text-xs text-rose-400" x-text="op.result"></span>
+                        </template>
+                        <template x-if="!op.error">
+                            <span
+                                class="mono text-xs text-emerald-600 dark:text-emerald-400 break-all whitespace-pre-wrap"
+                                x-text="op.result"></span>
+                        </template>
+                    </div>
+
+                </div>
+            </template>
+
+        </div>
+
+    </main>
+
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        function stringExplorer() {
+            return {
+                inputStr: 'Hello, World!',
+                activeTab: 0,
+
+                tabs: [
+                    { label: 'Info', icon: 'info', key: 'info' },
+                    { label: 'Search', icon: 'search', key: 'search' },
+                    { label: 'Transform', icon: 'transform', key: 'transform' },
+                    { label: 'Slice & Join', icon: 'cut', key: 'slice' },
+                    { label: 'Regex', icon: 'code', key: 'regex' },
+                ],
+
+                ops: {
+                    info: [
+                        {
+                            id: 'length', name: 'length', desc: 'Number of characters',
+                            params: [],
+                            run(s) { return String(s.length); }
+                        },
+                        {
+                            id: 'charAt', name: 'charAt', desc: 'Character at index',
+                            params: [{ label: 'index', placeholder: '0', value: '0' }],
+                            run(s, p) {
+                                const i = parseInt(p[0].value);
+                                if (isNaN(i)) throw 'Index must be a number';
+                                return JSON.stringify(s.charAt(i));
+                            }
+                        },
+                        {
+                            id: 'charCodeAt', name: 'charCodeAt', desc: 'Unicode value at index',
+                            params: [{ label: 'index', placeholder: '0', value: '0' }],
+                            run(s, p) {
+                                const i = parseInt(p[0].value);
+                                if (isNaN(i)) throw 'Index must be a number';
+                                const c = s.charCodeAt(i);
+                                return isNaN(c) ? 'NaN (out of range)' : String(c);
+                            }
+                        },
+                        {
+                            id: 'typeof', name: 'typeof', desc: 'Type of the value',
+                            params: [],
+                            run(s) { return typeof s; }
+                        },
+                    ],
+                    search: [
+                        {
+                            id: 'indexOf', name: 'indexOf', desc: 'First index of substring (−1 if not found)',
+                            params: [{ label: 'searchValue', placeholder: 'o', value: 'o' }],
+                            run(s, p) { return String(s.indexOf(p[0].value)); }
+                        },
+                        {
+                            id: 'lastIndexOf', name: 'lastIndexOf', desc: 'Last index of substring',
+                            params: [{ label: 'searchValue', placeholder: 'o', value: 'o' }],
+                            run(s, p) { return String(s.lastIndexOf(p[0].value)); }
+                        },
+                        {
+                            id: 'includes', name: 'includes', desc: 'Does string contain the substring?',
+                            params: [{ label: 'searchString', placeholder: 'World', value: 'World' }],
+                            run(s, p) { return String(s.includes(p[0].value)); }
+                        },
+                        {
+                            id: 'startsWith', name: 'startsWith', desc: 'Does string start with prefix?',
+                            params: [{ label: 'prefix', placeholder: 'Hello', value: 'Hello' }],
+                            run(s, p) { return String(s.startsWith(p[0].value)); }
+                        },
+                        {
+                            id: 'endsWith', name: 'endsWith', desc: 'Does string end with suffix?',
+                            params: [{ label: 'suffix', placeholder: '!', value: '!' }],
+                            run(s, p) { return String(s.endsWith(p[0].value)); }
+                        },
+                    ],
+                    transform: [
+                        {
+                            id: 'toUpperCase', name: 'toUpperCase', desc: 'Convert to UPPERCASE',
+                            params: [],
+                            run(s) { return s.toUpperCase(); }
+                        },
+                        {
+                            id: 'toLowerCase', name: 'toLowerCase', desc: 'Convert to lowercase',
+                            params: [],
+                            run(s) { return s.toLowerCase(); }
+                        },
+                        {
+                            id: 'trim', name: 'trim', desc: 'Remove leading and trailing whitespace',
+                            params: [],
+                            run(s) { return JSON.stringify(s.trim()); }
+                        },
+                        {
+                            id: 'trimStart', name: 'trimStart', desc: 'Remove leading whitespace',
+                            params: [],
+                            run(s) { return JSON.stringify(s.trimStart()); }
+                        },
+                        {
+                            id: 'replace', name: 'replace', desc: 'Replace first match with replacement',
+                            params: [
+                                { label: 'searchValue', placeholder: 'World', value: 'World' },
+                                { label: 'replaceValue', placeholder: 'JavaScript', value: 'JavaScript' }
+                            ],
+                            run(s, p) { return s.replace(p[0].value, p[1].value); }
+                        },
+                        {
+                            id: 'replaceAll', name: 'replaceAll', desc: 'Replace all matches',
+                            params: [
+                                { label: 'searchValue', placeholder: 'l', value: 'l' },
+                                { label: 'replaceValue', placeholder: 'L', value: 'L' }
+                            ],
+                            run(s, p) { return s.replaceAll(p[0].value, p[1].value); }
+                        },
+                        {
+                            id: 'repeat', name: 'repeat', desc: 'Repeat string N times',
+                            params: [{ label: 'count', placeholder: '2', value: '2' }],
+                            run(s, p) {
+                                const n = parseInt(p[0].value);
+                                if (isNaN(n) || n < 0) throw 'Count must be a non-negative integer';
+                                if (n > 100) throw 'Count too large (max 100)';
+                                return s.repeat(n);
+                            }
+                        },
+                        {
+                            id: 'padStart', name: 'padStart', desc: 'Pad the start to target length',
+                            params: [
+                                { label: 'targetLength', placeholder: '20', value: '20' },
+                                { label: 'padString', placeholder: '*', value: '*' }
+                            ],
+                            run(s, p) {
+                                const n = parseInt(p[0].value);
+                                if (isNaN(n)) throw 'targetLength must be a number';
+                                return s.padStart(n, p[1].value || ' ');
+                            }
+                        },
+                        {
+                            id: 'padEnd', name: 'padEnd', desc: 'Pad the end to target length',
+                            params: [
+                                { label: 'targetLength', placeholder: '20', value: '20' },
+                                { label: 'padString', placeholder: '-', value: '-' }
+                            ],
+                            run(s, p) {
+                                const n = parseInt(p[0].value);
+                                if (isNaN(n)) throw 'targetLength must be a number';
+                                return s.padEnd(n, p[1].value || ' ');
+                            }
+                        },
+                        {
+                            id: 'titleCase', name: 'toTitleCase', desc: 'Capitalize first letter of each word',
+                            params: [],
+                            run(s) {
+                                return s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+                            }
+                        },
+                        {
+                            id: 'swapCase', name: 'toSwapCase', desc: 'Swap upper ↔ lower for each character',
+                            params: [],
+                            run(s) {
+                                return s.split('').map(c =>
+                                    c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()
+                                ).join('');
+                            }
+                        },
+                        {
+                            id: 'camelCase', name: 'toCamelCase', desc: 'Convert to camelCase',
+                            params: [],
+                            run(s) {
+                                return s
+                                    .trim()
+                                    .replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase())
+                                    .replace(/^[A-Z]/, c => c.toLowerCase());
+                            }
+                        },
+                        {
+                            id: 'snakeCase', name: 'toSnakeCase', desc: 'Convert to snake_case',
+                            params: [],
+                            run(s) {
+                                return s
+                                    .trim()
+                                    .replace(/([a-z])([A-Z])/g, '$1 $2')
+                                    .replace(/[^a-zA-Z0-9]+/g, ' ')
+                                    .trim()
+                                    .split(' ')
+                                    .map(w => w.toLowerCase())
+                                    .join('_');
+                            }
+                        },
+                        {
+                            id: 'kebabCase', name: 'toKebabCase', desc: 'Convert to kebab-case',
+                            params: [],
+                            run(s) {
+                                return s
+                                    .trim()
+                                    .replace(/([a-z])([A-Z])/g, '$1 $2')
+                                    .replace(/[^a-zA-Z0-9]+/g, ' ')
+                                    .trim()
+                                    .split(' ')
+                                    .map(w => w.toLowerCase())
+                                    .join('-');
+                            }
+                        },
+                    ],
+                    slice: [
+                        {
+                            id: 'slice', name: 'slice', desc: 'Extract a section of the string',
+                            params: [
+                                { label: 'start', placeholder: '0', value: '0' },
+                                { label: 'end (optional)', placeholder: '5', value: '5' }
+                            ],
+                            run(s, p) {
+                                const start = parseInt(p[0].value);
+                                if (isNaN(start)) throw 'start must be a number';
+                                const end = p[1].value.trim() !== '' ? parseInt(p[1].value) : undefined;
+                                if (end !== undefined && isNaN(end)) throw 'end must be a number';
+                                return s.slice(start, end);
+                            }
+                        },
+                        {
+                            id: 'substring', name: 'substring', desc: 'Extract between two indices',
+                            params: [
+                                { label: 'start', placeholder: '0', value: '0' },
+                                { label: 'end', placeholder: '5', value: '5' }
+                            ],
+                            run(s, p) {
+                                const start = parseInt(p[0].value);
+                                const end = parseInt(p[1].value);
+                                if (isNaN(start) || isNaN(end)) throw 'Indices must be numbers';
+                                return s.substring(start, end);
+                            }
+                        },
+                        {
+                            id: 'split', name: 'split', desc: 'Split into an array by delimiter',
+                            params: [{ label: 'separator', placeholder: ', ', value: ', ' }],
+                            run(s, p) {
+                                const result = s.split(p[0].value);
+                                return JSON.stringify(result);
+                            }
+                        },
+                        {
+                            id: 'concat', name: 'concat', desc: 'Concatenate another string',
+                            params: [{ label: 'string2', placeholder: ' 🚀', value: ' 🚀' }],
+                            run(s, p) { return s.concat(p[0].value); }
+                        },
+                        {
+                            id: 'at', name: 'at', desc: 'Character at index (supports negative)',
+                            params: [{ label: 'index', placeholder: '-1', value: '-1' }],
+                            run(s, p) {
+                                const i = parseInt(p[0].value);
+                                if (isNaN(i)) throw 'Index must be a number';
+                                const r = s.at(i);
+                                return r === undefined ? 'undefined (out of range)' : JSON.stringify(r);
+                            }
+                        },
+                    ],
+                    regex: [
+                        {
+                            id: 'match', name: 'match', desc: 'Find all matches (with /g flag)',
+                            params: [{ label: 'pattern', placeholder: '[aeiou]', value: '[aeiou]' }],
+                            run(s, p) {
+                                const pat = p[0].value;
+                                if (!pat) throw 'Pattern required';
+                                const regex = new RegExp(pat, 'g');
+                                const result = s.match(regex);
+                                return result ? JSON.stringify(result) : 'null (no matches)';
+                            }
+                        },
+                        {
+                            id: 'test', name: 'test (RegExp)', desc: 'Test if pattern matches',
+                            params: [{ label: 'pattern', placeholder: '^Hello', value: '^Hello' }],
+                            run(s, p) {
+                                const pat = p[0].value;
+                                if (!pat) throw 'Pattern required';
+                                const regex = new RegExp(pat);
+                                return String(regex.test(s));
+                            }
+                        },
+                        {
+                            id: 'matchAll', name: 'matchAll', desc: 'All matches with capture groups',
+                            params: [{ label: 'pattern', placeholder: '(\\w+)', value: '(\\w+)' }],
+                            run(s, p) {
+                                const pat = p[0].value;
+                                if (!pat) throw 'Pattern required';
+                                const regex = new RegExp(pat, 'g');
+                                const matches = [...s.matchAll(regex)];
+                                if (!matches.length) return 'No matches';
+                                return matches.map((m, i) => `[${i}] "${m[0]}" @ ${m.index}`).join('\n');
+                            }
+                        },
+                        {
+                            id: 'search', name: 'search', desc: 'Index of first regex match (−1 if none)',
+                            params: [{ label: 'pattern', placeholder: 'W\\w+', value: 'W\\w+' }],
+                            run(s, p) {
+                                const pat = p[0].value;
+                                if (!pat) throw 'Pattern required';
+                                return String(s.search(new RegExp(pat)));
+                            }
+                        },
+                        {
+                            id: 'replaceRegex', name: 'replace (regex)', desc: 'Replace using regex pattern',
+                            params: [
+                                { label: 'pattern', placeholder: '[aeiou]', value: '[aeiou]' },
+                                { label: 'flags', placeholder: 'gi', value: 'gi' },
+                                { label: 'replacement', placeholder: '*', value: '*' }
+                            ],
+                            run(s, p) {
+                                const regex = new RegExp(p[0].value, p[1].value);
+                                return s.replace(regex, p[2].value);
+                            }
+                        },
+                    ]
+                },
+
+                get currentOps() {
+                    if (this.activeTab === null) return [];
+                    const key = this.tabs[this.activeTab].key;
+                    return this.ops[key] || [];
+                },
+
+                compute() {
+                    const key = this.tabs[this.activeTab].key;
+                    const operations = this.ops[key] || [];
+                    operations.forEach(op => {
+                        try {
+                            op.result = op.run(this.inputStr, op.params || []);
+                            op.error = false;
+                        } catch (e) {
+                            op.result = '⚠ ' + (e.message || e);
+                            op.error = true;
+                        }
+                    });
+                },
+
+                copyResult(op) {
+                    if (!op.result) return;
+                    navigator.clipboard.writeText(op.result).then(() => {
+                        op.copied = true;
+                        setTimeout(() => { op.copied = false; }, 2000);
+                    });
+                },
+
+                init() {
+                    // Initialize all ops with reactive state
+                    Object.keys(this.ops).forEach(key => {
+                        this.ops[key].forEach(op => {
+                            op.result = '';
+                            op.error = false;
+                            op.copied = false;
+                        });
+                    });
+                    this.compute();
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
