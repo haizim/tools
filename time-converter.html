@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" x-data="timeConverter()" :class="{ dark: darkMode }">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time Unit Converter</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"DM Mono"', 'monospace'],
+                        display: ['"Syne"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <style>
+        body {
+            font-family: 'DM Mono', monospace;
+        }
+
+        .ticker-bg {
+            background: repeating-linear-gradient(90deg,
+                    transparent,
+                    transparent 60px,
+                    rgba(100, 100, 100, 0.05) 60px,
+                    rgba(100, 100, 100, 0.05) 61px);
+        }
+
+        .result-row {
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .result-row:hover {
+            transform: translateX(4px);
+        }
+
+        .input-glow:focus {
+            box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.25);
+            outline: none;
+        }
+
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeSlideIn 0.25s ease forwards;
+        }
+
+        select option {
+            background: #1a1a1a;
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen bg-zinc-100 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 transition-colors duration-300 ticker-bg">
+
+    <!-- HEADER -->
+    <header class="max-w-2xl mx-auto px-4 pt-10 pb-6 flex items-center justify-between">
+        <div>
+            <p class="text-xs tracking-[0.25em] uppercase text-zinc-400 dark:text-zinc-500 mb-1">Utility Tool</p>
+            <h1 class="font-display text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+                Time <span class="text-yellow-500">Converter</span>
+            </h1>
+        </div>
+        <!-- Dark mode toggle -->
+        <button @click="darkMode = !darkMode; saveDark()"
+            class="w-10 h-10 rounded-full flex items-center justify-center border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shadow-sm"
+            :title="darkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+            <span class="material-icons-round text-xl text-zinc-500 dark:text-yellow-400">
+                <span x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+            </span>
+        </button>
+    </header>
+
+    <!-- MAIN CARD -->
+    <main class="max-w-2xl mx-auto px-4 pb-16">
+        <div
+            class="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden">
+
+            <!-- INPUT SECTION -->
+            <div class="p-6 border-b border-zinc-100 dark:border-zinc-800">
+                <div class="flex flex-col sm:flex-row gap-3">
+
+                    <!-- Number input -->
+                    <div class="flex-1">
+                        <label class="block text-[10px] tracking-widest uppercase text-zinc-400 mb-2">Value</label>
+                        <input type="number" x-model="inputValue" @input="convert()" placeholder="Enter a number…"
+                            class="input-glow w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-lg font-mono font-medium text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors" />
+                    </div>
+
+                    <!-- Unit selector -->
+                    <div class="sm:w-52">
+                        <label class="block text-[10px] tracking-widest uppercase text-zinc-400 mb-2">From Unit</label>
+                        <div class="relative">
+                            <select x-model="fromUnit" @change="convert()"
+                                class="input-glow w-full appearance-none bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-mono text-zinc-900 dark:text-white pr-10 cursor-pointer transition-colors">
+                                <template x-for="unit in units" :key="unit.key">
+                                    <option :value="unit.key" x-text="unit.label"></option>
+                                </template>
+                            </select>
+                            <span
+                                class="material-icons-round pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-lg">expand_more</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESULTS SECTION -->
+            <div class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+
+                <template x-if="inputValue !== '' && !isNaN(parseFloat(inputValue))">
+                    <div class="animate-in">
+                        <template x-for="unit in units" :key="unit.key">
+                            <div class="result-row flex items-center justify-between px-6 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-default"
+                                :class="fromUnit === unit.key ? 'bg-yellow-50 dark:bg-yellow-500/5' : ''">
+                                <!-- Left: unit label -->
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <span class="material-icons-round text-base shrink-0"
+                                        :class="fromUnit === unit.key ? 'text-yellow-500' : 'text-zinc-400 dark:text-zinc-600'">schedule</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs tracking-widest uppercase truncate"
+                                            :class="fromUnit === unit.key ? 'text-yellow-500 font-medium' : 'text-zinc-400 dark:text-zinc-500'"
+                                            x-text="unit.label"></p>
+                                        <p class="text-[10px] text-zinc-400 dark:text-zinc-600 truncate"
+                                            x-text="unit.sublabel"></p>
+                                    </div>
+                                </div>
+
+                                <!-- Right: converted value + copy -->
+                                <div class="flex items-center gap-2 ml-4 shrink-0">
+                                    <span class="font-mono text-right text-sm"
+                                        :class="fromUnit === unit.key ? 'text-yellow-500 font-semibold' : 'text-zinc-800 dark:text-zinc-200'"
+                                        x-text="formatResult(results[unit.key])"></span>
+                                    <button @click="copyValue(unit.key)"
+                                        class="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-300 dark:text-zinc-700 hover:text-yellow-500 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 transition-colors"
+                                        title="Copy value">
+                                        <span class="material-icons-round text-base"
+                                            x-text="copied === unit.key ? 'check' : 'content_copy'"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Empty state -->
+                <template x-if="inputValue === '' || isNaN(parseFloat(inputValue))">
+                    <div class="py-16 flex flex-col items-center justify-center text-center animate-in">
+                        <span
+                            class="material-icons-round text-5xl text-zinc-300 dark:text-zinc-700 mb-3">hourglass_empty</span>
+                        <p class="text-sm text-zinc-400 dark:text-zinc-600">Enter a value above to see all conversions
+                        </p>
+                    </div>
+                </template>
+            </div>
+
+        </div>
+
+        <!-- Footer note -->
+        <p class="text-center text-[11px] tracking-wider text-zinc-400 dark:text-zinc-600 mt-6 uppercase">
+            All conversions are exact · Client-side only
+        </p>
+    </main>
+
+    <script>
+        function timeConverter() {
+            return {
+                darkMode: localStorage.getItem('tc-dark') === 'true',
+                inputValue: '',
+                fromUnit: 'seconds',
+                copied: null,
+                results: {},
+
+                // Each unit: key, label, sublabel, and its value in seconds
+                units: [
+                    { key: 'nanoseconds', label: 'Nanoseconds', sublabel: 'ns', toSeconds: 1e-9 },
+                    { key: 'microseconds', label: 'Microseconds', sublabel: 'µs', toSeconds: 1e-6 },
+                    { key: 'milliseconds', label: 'Milliseconds', sublabel: 'ms', toSeconds: 1e-3 },
+                    { key: 'seconds', label: 'Seconds', sublabel: 's', toSeconds: 1 },
+                    { key: 'minutes', label: 'Minutes', sublabel: 'min', toSeconds: 60 },
+                    { key: 'hours', label: 'Hours', sublabel: 'hr', toSeconds: 3600 },
+                    { key: 'days', label: 'Days', sublabel: 'd', toSeconds: 86400 },
+                    { key: 'weeks', label: 'Weeks', sublabel: 'wk', toSeconds: 604800 },
+                    { key: 'months', label: 'Months', sublabel: 'mo', toSeconds: 2629746 },   // avg
+                    { key: 'years', label: 'Years', sublabel: 'yr', toSeconds: 31556952 },  // avg
+                    { key: 'decades', label: 'Decades', sublabel: 'dec', toSeconds: 315569520 },
+                    { key: 'centuries', label: 'Centuries', sublabel: 'c', toSeconds: 3155695200 },
+                ],
+
+                convert() {
+                    console.log('convert called');
+
+                    const val = parseFloat(this.inputValue);
+                    if (isNaN(val)) { this.results = {}; return; }
+
+                    const fromFactor = this.units.find(u => u.key === this.fromUnit).toSeconds;
+                    const valueInSeconds = val * fromFactor;
+
+                    this.results = {};
+                    this.units.forEach(u => {
+                        this.results[u.key] = valueInSeconds / u.toSeconds;
+                    });
+                },
+
+                // Smart number formatting
+                formatResult(val) {
+                    if (val === undefined || val === null) return '—';
+                    if (val === 0) return '0';
+
+                    const abs = Math.abs(val);
+
+                    // Very large or very small: use exponential
+                    if (abs >= 1e15 || (abs < 1e-6 && abs > 0)) {
+                        return val.toExponential(4);
+                    }
+
+                    // Large numbers: no decimals
+                    if (abs >= 1e9) return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    if (abs >= 1000) return val.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                    if (abs >= 1) return val.toLocaleString('en-US', { maximumFractionDigits: 6 });
+
+                    // Small numbers: show significant digits
+                    return val.toPrecision(6).replace(/\.?0+$/, '');
+                },
+
+                copyValue(unitKey) {
+                    const val = this.results[unitKey];
+                    if (val === undefined) return;
+                    navigator.clipboard.writeText(String(val)).then(() => {
+                        this.copied = unitKey;
+                        setTimeout(() => { this.copied = null; }, 1800);
+                    });
+                },
+
+                saveDark() {
+                    localStorage.setItem('tc-dark', this.darkMode);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
