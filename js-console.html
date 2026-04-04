@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en" x-data="app()" x-init="init()" :class="{ dark: darkMode }">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JS Console</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Syne', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- CodeJar -->
+    <script type="module">
+        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.min.js';
+        window.CodeJar = CodeJar;
+    </script>
+
+    <!-- highlight.js -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+        id="hljs-dark-theme" />
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css"
+        id="hljs-light-theme" disabled />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: #0f0f11;
+            color: #e2e8f0;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        .dark body {
+            background: #0f0f11;
+        }
+
+        /* CodeJar editor */
+        .editor-wrap {
+            height: 100%;
+            overflow: auto;
+            position: relative;
+        }
+
+        .code-editor {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13.5px;
+            line-height: 1.7;
+            padding: 16px 20px;
+            min-height: 100%;
+            outline: none;
+            white-space: pre;
+            tab-size: 2;
+        }
+
+        /* hljs overrides */
+        .hljs {
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        /* Divider drag handle */
+        #divider {
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.15s;
+            z-index: 10;
+        }
+
+        #divider:hover,
+        #divider.dragging {
+            background: #6366f1;
+        }
+
+        #divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 40px;
+            border-radius: 99px;
+            background: #374151;
+            transition: background 0.15s;
+        }
+
+        #divider:hover::after,
+        #divider.dragging::after {
+            background: #6366f1;
+        }
+
+        /* Output entries */
+        .log-line {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-log {
+            color: #cbd5e1;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-warn {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.06);
+        }
+
+        .log-error {
+            color: #f87171;
+            background: rgba(248, 113, 113, 0.06);
+        }
+
+        .log-result {
+            color: #a78bfa;
+        }
+
+        .log-divider {
+            border-color: #1e2335;
+        }
+
+        /* Snippet modal */
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2d3748;
+            border-radius: 99px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4a5568;
+        }
+
+        /* Toast */
+        .toast {
+            animation: slideUp 0.3s ease, fadeOut 0.3s ease 1.7s forwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(16px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+        }
+
+        /* Line numbers gutter feel via hljs */
+        .editor-pane {
+            background: #13131a;
+        }
+
+        .output-pane {
+            background: #0d0d12;
+        }
+
+        /* Light mode overrides */
+        html:not(.dark) body {
+            background: #f0f2f8;
+            color: #1e293b;
+        }
+
+        html:not(.dark) .editor-pane {
+            background: #ffffff;
+        }
+
+        html:not(.dark) .output-pane {
+            background: #f8faff;
+        }
+
+        html:not(.dark) #hljs-dark-theme {
+            disabled: true;
+        }
+
+        html:not(.dark) #hljs-light-theme {
+            disabled: false;
+        }
+
+        html:not(.dark) .log-log {
+            color: #334155;
+        }
+
+        html:not(.dark) .log-result {
+            color: #7c3aed;
+        }
+
+        html:not(.dark) .log-divider {
+            border-color: #e2e8f0;
+        }
+
+        html:not(.dark) #divider::after {
+            background: #cbd5e1;
+        }
+
+        html:not(.dark) ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            background: #1a1a24;
+            border-bottom: 1px solid #252533;
+        }
+
+        html:not(.dark) .toolbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        html:not(.dark) .toolbar .text-slate-300 {
+            color: #334155;
+        }
+
+        html:not(.dark) .toolbar .text-slate-400 {
+            color: #64748b;
+        }
+
+        html:not(.dark) .toolbar .text-slate-500 {
+            color: #94a3b8;
+        }
+
+        /* Btn hover */
+        .btn-tool {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Syne', sans-serif;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            outline: none;
+        }
+
+        .btn-run {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-run:hover {
+            background: #4f46e5;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: #94a3b8;
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.07);
+            color: #e2e8f0;
+        }
+
+        html:not(.dark) .btn-ghost:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: #1e293b;
+        }
+
+        /* snippet modal */
+        .snippet-card {
+            transition: background 0.1s;
+        }
+
+        .snippet-card:hover {
+            background: rgba(99, 102, 241, 0.08);
+        }
+    </style>
+</head>
+
+<body class="flex flex-col h-dvh overflow-hidden">
+
+    <!-- TOOLBAR -->
+    <div class="toolbar flex items-center gap-2 px-4 py-2.5 shrink-0 select-none">
+
+        <!-- Logo -->
+        <div class="flex items-center gap-2 mr-3">
+            <span class="material-icons-round text-indigo-400 text-lg">terminal</span>
+            <span class="font-bold text-sm tracking-wide text-slate-300">JS Console</span>
+        </div>
+
+        <!-- Run -->
+        <button class="btn-tool btn-run" @click="runCode()" title="Ctrl+Enter">
+            <span class="material-icons-round text-[15px]">play_arrow</span>
+            Run
+        </button>
+
+        <!-- Format -->
+        <button class="btn-tool btn-ghost" @click="formatCode()" title="Format code">
+            <span class="material-icons-round text-[15px]">auto_fix_high</span>
+            Format
+        </button>
+
+        <!-- Save -->
+        <button class="btn-tool btn-ghost" @click="openSaveModal()" title="Save snippet">
+            <span class="material-icons-round text-[15px]">save</span>
+            Save
+        </button>
+
+        <!-- Snippets -->
+        <button class="btn-tool btn-ghost" @click="openSnippets()" title="Saved snippets">
+            <span class="material-icons-round text-[15px]">folder_open</span>
+            Snippets
+            <template x-if="snippets.length > 0">
+                <span class="text-[10px] bg-indigo-500 text-white rounded-full px-1.5 py-0.5 leading-none"
+                    x-text="snippets.length"></span>
+            </template>
+        </button>
+
+        <!-- New -->
+        <button class="btn-tool btn-ghost" @click="newFile()" title="New file">
+            <span class="material-icons-round text-[15px]">add</span>
+            New
+        </button>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Current snippet name -->
+        <span class="text-xs text-slate-500 font-mono mr-2" x-text="currentName || 'untitled.js'"></span>
+
+        <!-- Clear output -->
+        <button class="btn-tool btn-ghost" @click="clearOutput()" title="Clear output">
+            <span class="material-icons-round text-[15px]">clear_all</span>
+        </button>
+
+        <!-- Dark mode toggle -->
+        <button class="btn-tool btn-ghost" @click="toggleDark()" title="Toggle dark/light">
+            <span class="material-icons-round text-[15px]" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+        </button>
+
+    </div>
+
+    <!-- MAIN SPLIT PANE -->
+    <div class="flex flex-1 min-h-0 overflow-hidden" id="split-container">
+
+        <!-- EDITOR PANE -->
+        <div class="editor-pane flex flex-col min-w-0 overflow-hidden" id="editor-pane"
+            :style="`width: ${editorWidth}%`">
+            <div class="flex items-center px-4 py-1.5 border-b border-white/5">
+                <span class="text-[11px] font-semibold text-slate-500 tracking-widest uppercase">Editor</span>
+            </div>
+            <div class="editor-wrap flex-1 overflow-auto">
+                <pre><code id="codejar-editor" class="code-editor language-javascript hljs"></code></pre>
+            </div>
+        </div>
+
+        <!-- DRAG DIVIDER -->
+        <div id="divider" @mousedown="startDrag($event)"></div>
+
+        <!-- OUTPUT PANE -->
+        <div class="output-pane flex flex-col flex-1 min-w-0 overflow-hidden" id="output-pane">
+            <div class="flex items-center justify-between px-4 py-1.5 border-b border-white/5">
+                <span class="text-[11px] font-semibold text-slate-500 tracking-widest uppercase">Output</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] text-slate-600"
+                        x-text="output.length ? output.length + ' entries' : ''"></span>
+                </div>
+            </div>
+            <div class="flex-1 overflow-auto p-4 space-y-0.5" id="output-scroll">
+                <template x-if="output.length === 0">
+                    <div class="flex flex-col items-center justify-center h-full text-slate-600 select-none">
+                        <span class="material-icons-round text-4xl mb-2 opacity-30">code</span>
+                        <span class="text-sm">Run your code to see output</span>
+                    </div>
+                </template>
+                <template x-for="(entry, i) in output" :key="i">
+                    <div>
+                        <!-- Divider between runs -->
+                        <template x-if="entry.type === 'divider'">
+                            <hr class="log-divider border-t my-3" />
+                        </template>
+                        <!-- Run header -->
+                        <template x-if="entry.type === 'header'">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="material-icons-round text-indigo-400 text-[13px]">play_arrow</span>
+                                <span
+                                    class="text-[10px] text-indigo-400 font-semibold font-mono uppercase tracking-widest"
+                                    x-text="entry.text"></span>
+                            </div>
+                        </template>
+                        <!-- Log entries -->
+                        <template x-if="entry.type !== 'divider' && entry.type !== 'header'">
+                            <div class="log-line flex gap-2 px-2 py-0.5 rounded" :class="'log-' + entry.type">
+                                <span class="material-icons-round text-[13px] mt-0.5 shrink-0 opacity-70" :class="{
+                    'text-slate-400': entry.type === 'log',
+                    'text-blue-400':  entry.type === 'info',
+                    'text-yellow-400':entry.type === 'warn',
+                    'text-red-400':   entry.type === 'error',
+                    'text-violet-400':entry.type === 'result',
+                  }" x-text="{log:'chevron_right',info:'info',warn:'warning',error:'error',result:'arrow_right_alt'}[entry.type] || 'chevron_right'"></span>
+                                <span class="flex-1 whitespace-pre-wrap break-all" x-text="entry.text"></span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== SAVE MODAL ===== -->
+    <div x-show="showSaveModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center modal-overlay"
+        @click.self="showSaveModal=false">
+        <div class="bg-[#1a1a24] dark:bg-[#1a1a24] rounded-xl shadow-2xl border border-white/10 w-full max-w-sm p-6"
+            style="background:#1a1a24">
+            <h3 class="text-base font-bold text-slate-200 mb-4">Save Snippet</h3>
+            <input x-model="saveLabel" @keydown.enter="confirmSave()" @keydown.escape="showSaveModal=false" type="text"
+                placeholder="Snippet name..."
+                class="w-full bg-[#0d0d12] text-slate-200 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-indigo-500 transition mb-4"
+                x-ref="saveLabelInput" />
+            <div class="flex gap-2 justify-end">
+                <button class="btn-tool btn-ghost text-xs" @click="showSaveModal=false">Cancel</button>
+                <button class="btn-tool btn-run text-xs" @click="confirmSave()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SNIPPETS MODAL ===== -->
+    <div x-show="showSnippets" x-cloak class="fixed inset-0 z-50 flex items-center justify-center modal-overlay"
+        @click.self="showSnippets=false">
+        <div class="bg-[#1a1a24] rounded-xl shadow-2xl border border-white/10 w-full max-w-lg flex flex-col"
+            style="background:#1a1a24; max-height: 70vh;">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
+                <h3 class="text-base font-bold text-slate-200">Saved Snippets</h3>
+                <button class="btn-ghost btn-tool p-1" @click="showSnippets=false">
+                    <span class="material-icons-round text-[18px]">close</span>
+                </button>
+            </div>
+            <div class="flex-1 overflow-auto p-3 space-y-1">
+                <template x-if="snippets.length === 0">
+                    <div class="text-center text-slate-600 text-sm py-12">No saved snippets yet.</div>
+                </template>
+                <template x-for="(s, i) in snippets" :key="s.id">
+                    <div class="snippet-card flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer group"
+                        @click="loadSnippet(i)">
+                        <span class="material-icons-round text-indigo-400 text-[18px]">code</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-200 truncate" x-text="s.name"></div>
+                            <div class="text-[11px] text-slate-500 font-mono" x-text="formatDate(s.ts)"></div>
+                        </div>
+                        <button
+                            class="opacity-0 group-hover:opacity-100 btn-ghost btn-tool p-1 text-red-400 hover:text-red-300"
+                            @click.stop="deleteSnippet(i)" title="Delete">
+                            <span class="material-icons-round text-[16px]">delete</span>
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST ===== -->
+    <template x-if="toast">
+        <div
+            class="toast fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#1a1a24] border border-white/10 text-slate-200 text-sm font-semibold px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2">
+            <span class="material-icons-round text-indigo-400 text-[16px]" x-text="toastIcon"></span>
+            <span x-text="toast"></span>
+        </div>
+    </template>
+
+    <script>
+        function app() {
+            return {
+                darkMode: true,
+                output: [],
+                snippets: [],
+                currentName: '',
+                currentId: null,
+
+                showSaveModal: false,
+                saveLabel: '',
+                showSnippets: false,
+
+                toast: '',
+                toastIcon: 'check_circle',
+                toastTimer: null,
+
+                jar: null,
+                editorWidth: 50,
+                isDragging: false,
+
+                init() {
+                    // Load dark mode pref
+                    const saved = localStorage.getItem('jsc_dark');
+                    this.darkMode = saved === null ? true : saved === 'true';
+                    this.applyHljsTheme();
+
+                    // Load snippets from IndexedDB
+                    this.loadSnippetsFromDB();
+
+                    // Init CodeJar after Alpine boots
+                    this.$nextTick(() => {
+                        this.initEditor();
+                        this.bindKeyboard();
+                    });
+                },
+
+                /* ---- EDITOR ---- */
+                initEditor() {
+                    const el = document.getElementById('codejar-editor');
+                    const highlight = (editor) => {
+                        editor.textContent = editor.textContent;
+                        hljs.highlightElement(editor);
+                    };
+                    this.jar = CodeJar(el, highlight, {
+                        tab: '  ',
+                        indentOn: /[{([]/,
+                    });
+
+                    const starter = `// Welcome to JS Console\n// Press Ctrl+Enter or click Run\n\nconst greet = (name) => \`Hello, \${name}!\`;\nconsole.log(greet('World'));\n\nconst nums = [1, 2, 3, 4, 5];\nconst sum = nums.reduce((a, b) => a + b, 0);\nconsole.log('Sum:', sum);\n\nnums.filter(n => n % 2 === 0);`;
+                    this.jar.updateCode(starter);
+                },
+
+                bindKeyboard() {
+                    document.addEventListener('keydown', (e) => {
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                            e.preventDefault();
+                            this.runCode();
+                        }
+                    });
+                },
+
+                /* ---- RUN ---- */
+                runCode() {
+                    const code = this.jar.toString();
+                    if (!code.trim()) return;
+
+                    // Divider between runs (skip on first)
+                    if (this.output.length > 0) {
+                        this.output.push({ type: 'divider' });
+                    }
+                    const ts = new Date().toLocaleTimeString();
+                    this.output.push({ type: 'header', text: `Run @ ${ts}` });
+
+                    // Capture console methods
+                    const captured = [];
+                    const methods = ['log', 'info', 'warn', 'error'];
+                    const originals = {};
+                    methods.forEach(m => {
+                        originals[m] = console[m];
+                        console[m] = (...args) => {
+                            originals[m](...args);
+                            captured.push({ type: m, text: args.map(a => this.serialize(a)).join(' ') });
+                        };
+                    });
+
+                    let result;
+                    let hasError = false;
+                    try {
+                        result = (new Function(code))();
+                    } catch (err) {
+                        hasError = true;
+                        captured.push({ type: 'error', text: `${err.name}: ${err.message}` });
+                    } finally {
+                        methods.forEach(m => console[m] = originals[m]);
+                    }
+
+                    captured.forEach(c => this.output.push(c));
+
+                    if (!hasError && result !== undefined) {
+                        this.output.push({ type: 'result', text: '→ ' + this.serialize(result) });
+                    }
+
+                    this.$nextTick(() => {
+                        const el = document.getElementById('output-scroll');
+                        if (el) el.scrollTop = el.scrollHeight;
+                    });
+                },
+
+                serialize(val) {
+                    if (val === null) return 'null';
+                    if (val === undefined) return 'undefined';
+                    if (typeof val === 'function') return val.toString().slice(0, 80) + '...';
+                    try { return JSON.stringify(val, null, 2); }
+                    catch { return String(val); }
+                },
+
+                clearOutput() {
+                    this.output = [];
+                },
+
+                /* ---- FORMAT ---- */
+                formatCode() {
+                    let code = this.jar.toString();
+                    try {
+                        // Basic JS formatter: indent braces, semicolons hint
+                        code = this.basicFormat(code);
+                        this.jar.updateCode(code);
+                        this.showToast('Code formatted', 'auto_fix_high');
+                    } catch (e) {
+                        this.showToast('Format failed', 'error');
+                    }
+                },
+
+                basicFormat(code) {
+                    // Use prettier if available, else best-effort
+                    let indent = 0;
+                    const lines = code.split('\n').map(l => l.trim()).filter((l, i, a) => {
+                        // collapse multiple empty lines
+                        if (l === '' && a[i - 1] === '') return false;
+                        return true;
+                    });
+                    const result = [];
+                    for (let line of lines) {
+                        const closes = (line.match(/^[}\])]/) || []).length;
+                        if (closes) indent = Math.max(0, indent - closes);
+                        result.push('  '.repeat(indent) + line);
+                        const opens = (line.match(/[{[(][^'"`]*$/) || []).length;
+                        const closesEnd = (line.match(/[}\])]/) || []).length;
+                        indent += Math.max(0, opens - closesEnd);
+                    }
+                    return result.join('\n');
+                },
+
+                /* ---- SAVE / SNIPPETS ---- */
+                openSaveModal() {
+                    this.saveLabel = this.currentName || '';
+                    this.showSaveModal = true;
+                    this.$nextTick(() => this.$refs.saveLabelInput?.focus());
+                },
+
+                confirmSave() {
+                    const name = this.saveLabel.trim() || 'untitled';
+                    const code = this.jar.toString();
+                    const ts = Date.now();
+
+                    if (this.currentId) {
+                        // Update existing
+                        const idx = this.snippets.findIndex(s => s.id === this.currentId);
+                        if (idx > -1) {
+                            this.snippets[idx] = { ...this.snippets[idx], name, code, ts };
+                        } else {
+                            this.snippets.unshift({ id: this.currentId, name, code, ts });
+                        }
+                    } else {
+                        const id = 'snip_' + ts;
+                        this.currentId = id;
+                        this.snippets.unshift({ id, name, code, ts });
+                    }
+                    this.currentName = name;
+                    this.saveSnippetsToDB();
+                    this.showSaveModal = false;
+                    this.saveLabel = '';
+                    this.showToast(`Saved "${name}"`, 'save');
+                },
+
+                openSnippets() {
+                    this.showSnippets = true;
+                },
+
+                loadSnippet(i) {
+                    const s = this.snippets[i];
+                    this.jar.updateCode(s.code);
+                    this.currentName = s.name;
+                    this.currentId = s.id;
+                    this.showSnippets = false;
+                    this.showToast(`Loaded "${s.name}"`, 'folder_open');
+                },
+
+                deleteSnippet(i) {
+                    const name = this.snippets[i].name;
+                    if (this.snippets[i].id === this.currentId) {
+                        this.currentId = null;
+                        this.currentName = '';
+                    }
+                    this.snippets.splice(i, 1);
+                    this.saveSnippetsToDB();
+                    this.showToast(`Deleted "${name}"`, 'delete');
+                },
+
+                formatDate(ts) {
+                    return new Date(ts).toLocaleString();
+                },
+
+                newFile() {
+                    this.jar.updateCode('');
+                    this.currentName = '';
+                    this.currentId = null;
+                    this.clearOutput();
+                    this.showToast('New file', 'add');
+                },
+
+                /* ---- INDEXEDDB ---- */
+                getDB() {
+                    return new Promise((res, rej) => {
+                        const req = indexedDB.open('jsconsole_db', 1);
+                        req.onupgradeneeded = e => {
+                            e.target.result.createObjectStore('snippets', { keyPath: 'id' });
+                        };
+                        req.onsuccess = e => res(e.target.result);
+                        req.onerror = e => rej(e);
+                    });
+                },
+
+                async saveSnippetsToDB() {
+                    const db = await this.getDB();
+                    const tx = db.transaction('snippets', 'readwrite');
+                    const store = tx.objectStore('snippets');
+                    store.clear();
+                    this.snippets.forEach(s => store.put(s));
+                },
+
+                async loadSnippetsFromDB() {
+                    try {
+                        const db = await this.getDB();
+                        const tx = db.transaction('snippets', 'readonly');
+                        const store = tx.objectStore('snippets');
+                        const req = store.getAll();
+                        req.onsuccess = e => {
+                            const all = e.target.result || [];
+                            this.snippets = all.sort((a, b) => b.ts - a.ts);
+                        };
+                    } catch (err) {
+                        console.warn('IndexedDB unavailable');
+                    }
+                },
+
+                /* ---- DRAG RESIZE ---- */
+                startDrag(e) {
+                    this.isDragging = true;
+                    const divider = document.getElementById('divider');
+                    divider.classList.add('dragging');
+
+                    const container = document.getElementById('split-container');
+                    const startX = e.clientX;
+                    const startW = document.getElementById('editor-pane').offsetWidth;
+                    const totalW = container.offsetWidth;
+
+                    const onMove = (ev) => {
+                        const delta = ev.clientX - startX;
+                        let newW = ((startW + delta) / totalW) * 100;
+                        newW = Math.max(20, Math.min(80, newW));
+                        this.editorWidth = newW;
+                    };
+
+                    const onUp = () => {
+                        this.isDragging = false;
+                        divider.classList.remove('dragging');
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                },
+
+                /* ---- DARK MODE ---- */
+                toggleDark() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('jsc_dark', this.darkMode);
+                    this.applyHljsTheme();
+                },
+
+                applyHljsTheme() {
+                    const dark = document.getElementById('hljs-dark-theme');
+                    const light = document.getElementById('hljs-light-theme');
+                    if (this.darkMode) {
+                        dark.removeAttribute('disabled');
+                        light.setAttribute('disabled', '');
+                    } else {
+                        light.removeAttribute('disabled');
+                        dark.setAttribute('disabled', '');
+                    }
+                },
+
+                /* ---- TOAST ---- */
+                showToast(msg, icon = 'check_circle') {
+                    this.toast = msg;
+                    this.toastIcon = icon;
+                    clearTimeout(this.toastTimer);
+                    this.toastTimer = setTimeout(() => this.toast = '', 2000);
+                },
+            }
+        }
+    </script>
+</body>
+
+</html>
