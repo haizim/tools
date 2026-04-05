@@ -167,7 +167,13 @@
                             class="pl-10 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 border p-2 bg-white dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400">
                     </div>
                 </div>
-                <div class="flex space-x-2">
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 px-2 py-1">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 mr-1">Prefix:</span>
+                        <input type="text" x-model="prefix" @change="savePrefix()" maxlength="10"
+                            class="w-16 text-sm font-medium bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-200 uppercase"
+                            placeholder="MWH">
+                    </div>
                     <button @click="exportData()"
                         class="flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                         <span class="material-icons text-sm mr-2">download</span> Backup
@@ -443,6 +449,7 @@
                 darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
                 invoices: [],
                 search: '',
+                prefix: localStorage.getItem('hzm_invoice_prefix') || 'MWH',
                 form: {
                     id: null,
                     number: '',
@@ -517,10 +524,15 @@
                     return this.formTotal + this.pph21;
                 },
 
+                savePrefix() {
+                    localStorage.setItem('hzm_invoice_prefix', this.prefix);
+                },
+
                 generateInvoiceNumber() {
                     const year = new Date().getFullYear();
-                    const count = this.invoices.filter(i => i.number.includes(`MWH-${year}`)).length + 1;
-                    return `MWH-${year}-${String(count).padStart(3, '0')}`;
+                    const p = this.prefix || 'MWH';
+                    const count = this.invoices.filter(i => i.number.startsWith(`${p}-${year}`)).length + 1;
+                    return `${p}-${year}-${String(count).padStart(3, '0')}`;
                 },
 
                 createNewInvoice() {
