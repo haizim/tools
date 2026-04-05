@@ -7,7 +7,7 @@
     <title>HTML Formatter</title>
 
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/tailwindcss.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -38,19 +38,19 @@
 
     <!-- CodeJar -->
     <script type="module">
-        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.min.js';
+        import { CodeJar } from './assets/js/codejar.min.js';
         window.CodeJar = CodeJar;
     </script>
 
     <!-- Highlight.js for syntax highlighting inside CodeJar -->
     <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+        href="assets/css/atom-one-dark.min.css"
         id="hljs-theme-dark" />
     <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css"
+        href="assets/css/atom-one-light.min.css"
         id="hljs-theme-light" disabled />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+    <script src="assets/js/highlight.min.js"></script>
+    <script src="assets/js/highlight-xml.min.js"></script>
 
     <style>
         /* ── Base reset & font ── */
@@ -338,7 +338,7 @@
     <!-- ══════════════════════════════════════════
        Alpine.js
   ══════════════════════════════════════════ -->
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="assets/js/alpine.min.js" defer></script>
 
     <script>
         function appRoot() {

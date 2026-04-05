@@ -7,7 +7,7 @@
     <title>JSON Formatter</title>
 
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/tailwindcss.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -32,20 +32,20 @@
 
     <!-- Highlight.js: dark theme default, light theme disabled -->
     <link id="hljs-dark" rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+        href="assets/css/atom-one-dark.min.css" />
     <link id="hljs-light" rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" disabled />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+        href="assets/css/atom-one-light.min.css" disabled />
+    <script src="assets/js/highlight.min.js"></script>
+    <script src="assets/js/highlight-json.min.js"></script>
 
     <!-- CodeJar -->
     <script type="module">
-        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.min.js';
+        import { CodeJar } from './assets/js/codejar.min.js';
         window.CodeJar = CodeJar;
     </script>
 
     <!-- Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="assets/js/alpine.min.js"></script>
 
     <style>
         *,
