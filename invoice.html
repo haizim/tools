@@ -254,7 +254,7 @@
                             </tr>
                         </template>
                         <tr x-show="filteredInvoices.length === 0">
-                            <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
                                 <div class="flex flex-col items-center justify-center">
                                     <span class="material-icons text-gray-300 text-5xl mb-2">description</span>
                                     <p>Belum ada data invoice.</p>
@@ -271,7 +271,7 @@
 
             <div
                 class="bg-gray-100 dark:bg-gray-900 px-6 py-4 border-b-2 border-gray-200 dark:border-gray-700 flex justify-between items-center no-print">
-                <button @click="view = 'list'"
+                <button @click="view = 'list'; document.title = 'MWH Invoice Gen'"
                     class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex items-center text-sm font-medium">
                     <span class="material-icons mr-1 text-sm">arrow_back</span> Kembali
                 </button>
@@ -317,6 +317,8 @@
                             <p class="text-gray-900 dark:text-white font-medium" x-text="formatDate(form.date)"></p>
 
                             <p class="text-xs text-gray-500 uppercase font-semibold">Jatuh Tempo</p>
+                            <input type="date" x-model="form.dueDate"
+                                class="bg-transparent border-none p-0 text-rose-600 font-medium focus:ring-0 w-full mb-1 no-print dark:[color-scheme:dark]">
                             <p class="text-rose-600 font-medium" x-text="formatDate(form.dueDate)"></p>
                         </div>
                     </div>
@@ -376,11 +378,11 @@
                                     </textarea>
                                 </td>
                                 <td class="py-3 text-right">
-                                    <input type="text" x-model="item.qty"
+                                    <input type="number" min="1" x-model="item.qty"
                                         class="w-16 text-right border-0 focus:ring-0 p-0 text-gray-900 dark:text-white bg-transparent">
                                 </td>
                                 <td class="py-3 text-right">
-                                    <input type="text" x-model="item.price"
+                                    <input type="number" min="0" x-model="item.price"
                                         class="w-32 text-right border-0 focus:ring-0 p-0 text-gray-900 dark:text-white bg-transparent no-print">
                                     <span class="hidden print:block" x-text="formatCurrency(item.price)"></span>
                                 </td>
@@ -487,18 +489,23 @@
                 },
 
                 // --- COMPUTED PROPERTIES FOR DASHBOARD ---
+                calculateGrandTotal(inv) {
+                    const subtotal = this.calculateTotal(inv.items);
+                    if (inv.withTax) return subtotal + (subtotal * 0.025);
+                    return subtotal;
+                },
                 get statsAll() {
-                    return this.invoices.reduce((acc, inv) => acc + this.calculateTotal(inv.items), 0);
+                    return this.invoices.reduce((acc, inv) => acc + this.calculateGrandTotal(inv), 0);
                 },
                 get statsPaid() {
                     return this.invoices
                         .filter(i => i.status === 'Paid')
-                        .reduce((acc, inv) => acc + this.calculateTotal(inv.items), 0);
+                        .reduce((acc, inv) => acc + this.calculateGrandTotal(inv), 0);
                 },
                 get statsUnpaid() {
                     return this.invoices
                         .filter(i => i.status === 'Unpaid')
-                        .reduce((acc, inv) => acc + this.calculateTotal(inv.items), 0);
+                        .reduce((acc, inv) => acc + this.calculateGrandTotal(inv), 0);
                 },
                 // -----------------------------------------
 
@@ -531,8 +538,12 @@
                 generateInvoiceNumber() {
                     const year = new Date().getFullYear();
                     const p = this.prefix || 'MWH';
-                    const count = this.invoices.filter(i => i.number.startsWith(`${p}-${year}`)).length + 1;
-                    return `${p}-${year}-${String(count).padStart(3, '0')}`;
+                    const prefix = `${p}-${year}-`;
+                    const maxNum = this.invoices
+                        .filter(i => i.number.startsWith(prefix))
+                        .map(i => parseInt(i.number.replace(prefix, ''), 10) || 0)
+                        .reduce((max, n) => Math.max(max, n), 0);
+                    return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
                 },
 
                 createNewInvoice() {
@@ -568,11 +579,12 @@
                 saveInvoice() {
                     const index = this.invoices.findIndex(i => i.id === this.form.id);
                     if (index > -1) {
-                        this.invoices[index] = this.form;
+                        this.invoices[index] = JSON.parse(JSON.stringify(this.form));
                     } else {
-                        this.invoices.unshift(this.form);
+                        this.invoices.unshift(JSON.parse(JSON.stringify(this.form)));
                     }
                     this.persist();
+                    document.title = 'MWH Invoice Gen';
                     this.view = 'list';
                 },
 
