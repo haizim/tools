@@ -97,6 +97,7 @@
 
                 foreach ($files as $file) {
                     if (in_array($file, $ignore)) continue;
+                    if (pathinfo($file, PATHINFO_EXTENSION) !== 'html') continue;
                     
                     $displayName = pathinfo($file, PATHINFO_FILENAME);
                     $displayName = str_replace(['-', '_'], ' ', $displayName);
@@ -158,6 +159,7 @@
 
                 foreach ($files2 as $file) {
                     if (in_array($file, $ignore)) continue;
+                    if (pathinfo($file, PATHINFO_EXTENSION) !== 'html') continue;
                     
                     $displayName = pathinfo($file, PATHINFO_FILENAME);
                     $displayName = str_replace(['-', '_'], ' ', $displayName);
