@@ -43,6 +43,18 @@ Fitur :
 - Mobile View : Simulasi tampilan pada perangkat seluler.
 - Fullscreen View : Tampilan penuh untuk fokus maksimal.
 
+***ai-html-viewer.html***
+
+Penampil HTML dengan bantuan AI untuk generate dan edit kode secara interaktif.
+
+Fitur :
+- Live Preview : Lihat hasil perubahan kode secara instan.
+- AI Chat : Integrasi dengan OpenRouter untuk generate/edit kode HTML menggunakan AI.
+- Syntax Highlighting : Pewarnaan sintaks untuk keterbacaan yang lebih baik.
+- Multiple View Modes : Split view, code only, atau preview only.
+- Code Download : Unduh hasil kode HTML lengkap.
+- Chat History : Riwayat percakapan tersimpan di localStorage.
+
 ***img2pdf.html***
 
 Konversi file gambar menjadi format dokumen PDF.
@@ -102,6 +114,18 @@ Fitur :
 - Transformasi data JSON yang kompleks dengan cepat.
 - Editor kode interaktif untuk manipulasi data payload JSON.
 - UI yang adaptif dan sederhana untuk proses konversi antar node/field.
+
+***js-console.html***
+
+Konsol JavaScript untuk menulis, mengetes, dan men-debug kode JavaScript langsung di browser.
+
+Fitur :
+- Code Editor : Editor kode dengan syntax highlighting dan line numbers.
+- Console Output : Output console lengkap (console.log, errors, warnings).
+- Quick Snippets : Kumpulan snippet kode yang sering digunakan.
+- Auto-run : Jalankan kode secara otomatis saat tombol ditekan.
+- Clear Output : Bersihkan output dengan satu klik.
+- Dark/Light Mode : Tema gelap dan terang untuk kenyamanan visual.
 
 ***list-compare.html***
 
@@ -198,6 +222,29 @@ Fitur :
 - Pilihan konversi variasi teks: case changer (Camel/Kebab/Snake), Regex, trimming, escaping komprehensif, dst.
 - Pratinjau mutlak (absolute real-time preview) sewaktu data inti diketik.
 - Dukungan klik-salin cepat setelah string siap dan diformat sempurna.
+
+***time-converter.html***
+
+Konverter unit waktu untuk menghitung berbagai satuan waktu dengan cepat dan akurat.
+
+Fitur :
+- Multi-unit Conversion : Konversi antara detik, menit, jam, hari, minggu, bulan, dan tahun.
+- Real-time Calculation : Hasil konversi muncul secara instan saat input berubah.
+- Copy Result : Salin hasil konversi ke clipboard dengan satu klik.
+- Visual Display : Tampilan hasil yang jelas dan mudah dibaca.
+- Dark/Light Mode : Tema gelap dan terang untuk kenyamanan pengguna.
+
+***timestamp-converter.html***
+
+Konverter antara format DateTime dan Unix Timestamp dengan dukungan berbagai zona waktu.
+
+Fitur :
+- DateTime to Timestamp : Konversi tanggal/waktu ke Unix timestamp (detik dan milidetik).
+- Timestamp to DateTime : Konversi Unix timestamp ke format tanggal/waktu yang readable.
+- Current Timestamp : Tampilkan timestamp saat ini secara real-time.
+- Timezone Support : Konversi dengan berbagai zona waktu.
+- Bulk Conversion : Konversi banyak timestamp sekaligus.
+- Copy Result : Salin hasil konversi dengan cepat.
 
 ***table-converter.html***
 
