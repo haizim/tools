@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="id" x-data="app()" :class="{ dark: darkMode }" class="h-full">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kalender Imam Sholat</title>
+
+    <!-- Tailwind CSS -->
+    <script src="assets/js/tailwindcss.js"></script>
+    <script src="assets/js/theme-config.js"></script>
+
+    <!-- Fonts & Icons (Local) -->
+    <link href="assets/css/amiri-dmsans.css" rel="stylesheet">
+    <link href="assets/css/material-icons-round.css" rel="stylesheet">
+
+    <script>
+        // Check for saved theme preference or system preference
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Amiri', 'serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        sand: {
+                            50: '#fdf8f0',
+                            100: '#f7edda',
+                            200: '#edd9b4',
+                            300: '#dfc086',
+                            400: '#cea557',
+                            500: '#b8893a',
+                            600: '#9a6e2e',
+                            700: '#7c5526',
+                            800: '#644425',
+                            900: '#533921',
+                        },
+                        mosque: {
+                            50: '#f0f7f4',
+                            100: '#daeee6',
+                            200: '#b5dccf',
+                            300: '#83c3b1',
+                            400: '#55a490',
+                            500: '#3a8876',
+                            600: '#2e6d5f',
+                            700: '#27584e',
+                            800: '#22473f',
+                            900: '#1e3b35',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Local Assets -->
+    <!-- Alpine.js -->
+    <script defer src="assets/js/alpine.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        h1,
+        h2,
+        .font-display {
+            font-family: 'Amiri', serif;
+        }
+
+        /* Subtle grain overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.025;
+            z-index: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* Calendar day hover */
+        .cal-day {
+            transition: all 0.15s ease;
+        }
+
+        .cal-day:hover:not(.empty) {
+            transform: scale(1.08);
+        }
+
+        /* Row color picker */
+        .color-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.12s;
+            flex-shrink: 0;
+        }
+
+        .color-dot:hover {
+            transform: scale(1.25);
+        }
+
+        /* Fade-in panel */
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .panel-enter {
+            animation: fadeSlide 0.25s ease forwards;
+        }
+
+        @keyframes fadeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #b8893a55;
+            border-radius: 9px;
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen bg-sand-50 dark:bg-stone-950 text-stone-800 dark:text-stone-100 relative z-10 transition-colors duration-300">
+
+    <!-- ── TOP BAR ── -->
+    <header
+        class="sticky top-0 z-50 backdrop-blur-md bg-sand-50/80 dark:bg-stone-950/80 border-b border-sand-200 dark:border-stone-800">
+        <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+
+            <div class="flex items-center gap-2">
+                <span class="material-icons-round text-mosque-600 dark:text-mosque-400 text-xl">brightness_5</span>
+                <h1 class="font-display text-xl text-mosque-700 dark:text-mosque-300 leading-none tracking-wide">
+                    Kalender Imam Sholat</h1>
+            </div>
+
+            <div class="flex items-center gap-1">
+                <!-- Import -->
+                <button @click="$refs.fileInput.click()" title="Import Data (JSON)"
+                    class="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:bg-sand-200 dark:hover:bg-stone-800 transition-colors">
+                    <span class="material-icons-round text-[20px]">upload_file</span>
+                </button>
+                <input type="file" x-ref="fileInput" class="hidden" @change="importData($event)" accept=".json">
+
+                <!-- Export -->
+                <button @click="exportData()" title="Export Data (JSON)"
+                    class="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:bg-sand-200 dark:hover:bg-stone-800 transition-colors">
+                    <span class="material-icons-round text-[20px]">download</span>
+                </button>
+
+                <div class="w-px h-4 bg-sand-200 dark:bg-stone-800 mx-1"></div>
+
+                <button @click="darkMode = !darkMode"
+                    class="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:bg-sand-200 dark:hover:bg-stone-800 transition-colors">
+                    <span class="material-icons-round text-lg" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- ── MONTH NAVIGATION ── -->
+        <div class="flex items-center justify-between">
+            <button @click="prevMonth()"
+                class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-sand-200 dark:hover:bg-stone-800 transition-colors">
+                <span class="material-icons-round text-lg">chevron_left</span>
+            </button>
+
+            <h2 class="font-display text-2xl text-mosque-700 dark:text-mosque-300" x-text="monthLabel"></h2>
+
+            <button @click="nextMonth()"
+                class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-sand-200 dark:hover:bg-stone-800 transition-colors">
+                <span class="material-icons-round text-lg">chevron_right</span>
+            </button>
+        </div>
+
+        <!-- ── CALENDAR GRID ── -->
+        <div
+            class="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-sand-200 dark:border-stone-800 overflow-hidden">
+
+            <!-- Day headers -->
+            <div class="grid grid-cols-7 border-b border-sand-100 dark:border-stone-800">
+                <template x-for="d in ['Min','Sen','Sel','Rab','Kam','Jum','Sab']">
+                    <div class="py-2 text-center text-xs font-semibold uppercase tracking-wider"
+                        :class="d === 'Jum' ? 'text-mosque-600 dark:text-mosque-400' : 'text-stone-400 dark:text-stone-500'"
+                        x-text="d"></div>
+                </template>
+            </div>
+
+            <!-- Days -->
+            <div class="grid grid-cols-7 gap-px bg-sand-100 dark:bg-stone-800">
+                <template x-for="(cell, idx) in calendarCells" :key="idx">
+                    <div class="cal-day bg-white dark:bg-stone-900 aspect-square flex items-center justify-center relative cursor-pointer select-none"
+                        :class="{
+              'opacity-0 pointer-events-none': cell === null,
+              'cursor-default': cell === null,
+              'ring-2 ring-inset ring-mosque-400 dark:ring-mosque-500': cell && isToday(cell),
+            }" @click="cell && selectDate(cell)">
+
+                        <!-- Date number -->
+                        <span class="text-sm font-medium leading-none z-10 transition-colors" :class="cell && selectedDate && isSameDay(cell, selectedDate)
+                ? 'text-white'
+                : cell && isToday(cell)
+                  ? 'text-mosque-600 dark:text-mosque-300 font-bold'
+                  : cell && cell.getDay() === 5
+                    ? 'text-mosque-500 dark:text-mosque-400'
+                    : 'text-stone-700 dark:text-stone-200'" x-text="cell ? cell.getDate() : ''">
+                        </span>
+
+                        <!-- Selection bubble -->
+                        <div x-show="cell && selectedDate && isSameDay(cell, selectedDate)"
+                            class="absolute inset-1 rounded-full bg-mosque-600 dark:bg-mosque-500 z-0"></div>
+
+                        <!-- Dot indicator if has data -->
+                        <div x-show="cell && hasData(cell)"
+                            class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                            :class="cell && selectedDate && isSameDay(cell, selectedDate) ? 'bg-white/70' : 'bg-sand-400 dark:bg-sand-500'">
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- ── SHOLAT TABLE ── -->
+        <div x-show="selectedDate" x-cloak class="panel-enter">
+
+            <!-- Panel header -->
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-medium">Jadwal
+                        Sholat</p>
+                    <h3 class="font-display text-lg text-mosque-700 dark:text-mosque-300 leading-tight"
+                        x-text="selectedLabel"></h3>
+                </div>
+                <button @click="clearDay()" title="Hapus semua keterangan hari ini"
+                    class="text-xs text-red-400 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950">
+                    <span class="material-icons-round text-sm">delete_outline</span>
+                    Hapus
+                </button>
+            </div>
+
+            <!-- Table -->
+            <div
+                class="bg-white dark:bg-stone-900 rounded-2xl border border-sand-200 dark:border-stone-800 overflow-hidden shadow-sm">
+                <template x-for="(sholat, i) in sholatList" :key="sholat.key">
+                    <div class="flex items-stretch border-b border-sand-100 dark:border-stone-800 last:border-0 transition-colors"
+                        :style="rowStyle(sholat.key)">
+
+                        <!-- Sholat name -->
+                        <div
+                            class="w-24 flex-shrink-0 flex items-center px-4 py-3 border-r border-sand-100 dark:border-stone-800">
+                            <p class="font-semibold text-sm text-stone-700 dark:text-stone-200" x-text="sholat.name">
+                            </p>
+                        </div>
+
+                        <!-- Note input -->
+                        <div class="flex-1 flex items-center px-3">
+                            <input type="text" :placeholder="'Keterangan ' + sholat.name + '...'"
+                                class="w-full bg-transparent text-sm py-3 outline-none placeholder-stone-300 dark:placeholder-stone-600 text-stone-700 dark:text-stone-200"
+                                :value="getNote(sholat.key)" @input="setNote(sholat.key, $event.target.value)" />
+                        </div>
+
+                        <!-- Color picker -->
+                        <div class="flex-shrink-0 flex items-center gap-1.5 px-3">
+                            <template x-for="color in rowColors" :key="color.value">
+                                <button class="color-dot border-2 transition-all" :style="'background:' + color.bg"
+                                    :class="getRowColor(sholat.key) === color.value
+                    ? 'border-stone-500 dark:border-stone-300 scale-110'
+                    : 'border-transparent'" :title="color.label" @click="setRowColor(sholat.key, color.value)">
+                                </button>
+                            </template>
+                            <!-- Clear color -->
+                            <button @click="setRowColor(sholat.key, '')" title="Hapus warna"
+                                class="color-dot border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center"
+                                :class="!getRowColor(sholat.key) ? 'border-stone-500 dark:border-stone-300' : ''">
+                                <span class="material-icons-round text-stone-300 dark:text-stone-600"
+                                    style="font-size:13px">close</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </template>
+            </div>
+
+            <!-- Save hint -->
+            <p
+                class="text-xs text-stone-300 dark:text-stone-600 mt-2 text-center flex items-center justify-center gap-1">
+                <span class="material-icons-round" style="font-size:12px">save</span>
+                Data tersimpan otomatis di perangkat Anda
+            </p>
+        </div>
+
+        <!-- Empty state -->
+        <div x-show="!selectedDate" class="text-center py-12 text-stone-300 dark:text-stone-600">
+            <span class="material-icons-round text-5xl block mb-3">touch_app</span>
+            <p class="text-sm">Pilih tanggal untuk melihat detail</p>
+        </div>
+
+    </main>
+
+    <script>
+        function app() {
+            return {
+                darkMode: false,
+                today: new Date(),
+                viewYear: new Date().getFullYear(),
+                viewMonth: new Date().getMonth(),
+                selectedDate: null,
+
+                sholatList: [
+                    { key: 'shubuh', name: 'Shubuh' },
+                    { key: 'dhuhur', name: 'Dhuhur' },
+                    { key: 'ashar', name: 'Ashar' },
+                    { key: 'maghrib', name: 'Maghrib' },
+                    { key: 'isya', name: "Isya'" },
+                ],
+
+                rowColors: [
+                    { value: 'green', label: 'Hijau', bg: '#bbf7d0' },
+                    { value: 'yellow', label: 'Kuning', bg: '#fef08a' },
+                    { value: 'red', label: 'Merah', bg: '#fecaca' },
+                    { value: 'blue', label: 'Biru', bg: '#bfdbfe' },
+                    { value: 'purple', label: 'Ungu', bg: '#e9d5ff' },
+                ],
+
+                rowColorMap: {
+                    green: { light: '#f0fdf4', dark: '#14532d33' },
+                    yellow: { light: '#fefce8', dark: '#71350033' },
+                    red: { light: '#fff1f2', dark: '#7f1d1d33' },
+                    blue: { light: '#eff6ff', dark: '#1e3a5f33' },
+                    purple: { light: '#faf5ff', dark: '#3b0764 33' },
+                },
+
+                storageKey(dateObj) {
+                    if (!dateObj) return null;
+                    const y = dateObj.getFullYear();
+                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const d = String(dateObj.getDate()).padStart(2, '0');
+                    return `sholat_${y}_${m}_${d}`;
+                },
+
+                getDayData() {
+                    const key = this.storageKey(this.selectedDate);
+                    if (!key) return {};
+                    try { return JSON.parse(localStorage.getItem(key) || '{}'); }
+                    catch { return {}; }
+                },
+
+                saveDayData(data) {
+                    const key = this.storageKey(this.selectedDate);
+                    if (!key) return;
+                    localStorage.setItem(key, JSON.stringify(data));
+                },
+
+                getNote(sholatKey) {
+                    return (this.getDayData()[sholatKey] || {}).note || '';
+                },
+
+                setNote(sholatKey, val) {
+                    const data = this.getDayData();
+                    if (!data[sholatKey]) data[sholatKey] = {};
+                    data[sholatKey].note = val;
+                    this.saveDayData(data);
+                },
+
+                getRowColor(sholatKey) {
+                    return (this.getDayData()[sholatKey] || {}).color || '';
+                },
+
+                setRowColor(sholatKey, colorVal) {
+                    const data = this.getDayData();
+                    if (!data[sholatKey]) data[sholatKey] = {};
+                    data[sholatKey].color = colorVal;
+                    this.saveDayData(data);
+                    // trigger reactivity trick
+                    this.selectedDate = new Date(this.selectedDate);
+                },
+
+                rowStyle(sholatKey) {
+                    const color = this.getRowColor(sholatKey);
+                    if (!color || !this.rowColorMap[color]) return '';
+                    const isDark = this.darkMode;
+                    const bg = isDark ? this.rowColorMap[color].dark : this.rowColorMap[color].light;
+                    return `background-color: ${bg};`;
+                },
+
+                hasData(dateObj) {
+                    const key = this.storageKey(dateObj);
+                    if (!key) return false;
+                    try {
+                        const d = JSON.parse(localStorage.getItem(key) || '{}');
+                        return Object.values(d).some(v => v.note || v.color);
+                    } catch { return false; }
+                },
+
+                clearDay() {
+                    const key = this.storageKey(this.selectedDate);
+                    if (key) localStorage.removeItem(key);
+                    this.selectedDate = new Date(this.selectedDate); // trigger re-render
+                },
+
+                // Calendar helpers
+                get calendarCells() {
+                    const firstDay = new Date(this.viewYear, this.viewMonth, 1).getDay();
+                    const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+                    const cells = [];
+                    for (let i = 0; i < firstDay; i++) cells.push(null);
+                    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(this.viewYear, this.viewMonth, d));
+                    // pad to full rows
+                    while (cells.length % 7 !== 0) cells.push(null);
+                    return cells;
+                },
+
+                get monthLabel() {
+                    return new Date(this.viewYear, this.viewMonth, 1)
+                        .toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                },
+
+                get selectedLabel() {
+                    if (!this.selectedDate) return '';
+                    return this.selectedDate.toLocaleDateString('id-ID', {
+                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                    });
+                },
+
+                isToday(d) {
+                    if (!d) return false;
+                    const t = this.today;
+                    return d.getFullYear() === t.getFullYear() &&
+                        d.getMonth() === t.getMonth() &&
+                        d.getDate() === t.getDate();
+                },
+
+                isSameDay(a, b) {
+                    if (!a || !b) return false;
+                    return a.getFullYear() === b.getFullYear() &&
+                        a.getMonth() === b.getMonth() &&
+                        a.getDate() === b.getDate();
+                },
+
+                selectDate(d) {
+                    this.selectedDate = d;
+                },
+
+                prevMonth() {
+                    if (this.viewMonth === 0) { this.viewMonth = 11; this.viewYear--; }
+                    else this.viewMonth--;
+                    if (this.selectedDate &&
+                        (this.selectedDate.getMonth() !== this.viewMonth ||
+                            this.selectedDate.getFullYear() !== this.viewYear)) {
+                        this.selectedDate = null;
+                    }
+                },
+
+                nextMonth() {
+                    if (this.viewMonth === 11) { this.viewMonth = 0; this.viewYear++; }
+                    else this.viewMonth++;
+                    if (this.selectedDate &&
+                        (this.selectedDate.getMonth() !== this.viewMonth ||
+                            this.selectedDate.getFullYear() !== this.viewYear)) {
+                        this.selectedDate = null;
+                    }
+                },
+
+                exportData() {
+                    const data = {};
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key.startsWith('sholat_')) {
+                            try {
+                                data[key] = JSON.parse(localStorage.getItem(key));
+                            } catch (e) {
+                                console.error('Error parsing localStorage key:', key, e);
+                            }
+                        }
+                    }
+
+                    if (Object.keys(data).length === 0) {
+                        alert('Tidak ada data untuk diekspor.');
+                        return;
+                    }
+
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `kalender-sholat-export-${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+
+                importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            if (typeof data !== 'object' || data === null) throw new Error('Format file tidak valid.');
+
+                            let importedCount = 0;
+                            for (const key in data) {
+                                if (key.startsWith('sholat_')) {
+                                    localStorage.setItem(key, JSON.stringify(data[key]));
+                                    importedCount++;
+                                }
+                            }
+
+                            if (importedCount > 0) {
+                                alert(`${importedCount} data tanggal berhasil diimport.`);
+                                // Trigger re-render by resetting state slightly
+                                const currentYear = this.viewYear;
+                                this.viewYear = 0; // force change
+                                setTimeout(() => {
+                                    this.viewYear = currentYear;
+                                    this.selectedDate = null;
+                                }, 10);
+                            } else {
+                                alert('Tidak ada data sholat yang ditemukan dalam file.');
+                            }
+                        } catch (err) {
+                            alert('Gagal mengimport data: ' + err.message);
+                        }
+                        // Reset file input
+                        event.target.value = '';
+                    };
+                    reader.readAsText(file);
+                },
+
+                init() {
+                    // detect system dark mode
+                    this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                }
+            };
+        }
+    </script>
+</body>
+
+</html>

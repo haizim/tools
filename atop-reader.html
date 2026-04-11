@@ -609,6 +609,7 @@
                     this.fileName = file.name;
                     const reader = new FileReader();
                     reader.onload = (e) => {
+                        console.log('result : ', e.target.result)
                         this.parseAtop(e.target.result);
                     };
                     reader.readAsText(file);
@@ -663,32 +664,22 @@
                         const s = samples[timeKey];
 
                         if (type === 'CPU') {
-                            // atop parseable CPU: CPU host date time interval #cpu sysfreq
-                            //   then: user nice system irq softirq steal guest guestnice idle wait
-                            // or compact: CPU host date time interval usr sys irq idle wait
-                            // field index from 0:
-                            // 0=CPU 1=host 2=date 3=time 4=interval 5=#cpu ...
-                            // Fields after interval depend on version. Try common layouts:
-                            const base = 5;
+                            const base = 6;
                             // Check if f[base] looks like a cpu count (small number) or percentage
-                            let off = 0;
-                            if (parseInt(f[base]) < 256 && f[base + 1] !== undefined) off = 1; // skip #cpu
-                            // Extended: usr nice sys irq softirq steal guest guestnice idle wait
-                            if (f[base + off] !== undefined) {
-                                s.cpuUsr = parseFloat(f[base + off]) || 0;
-                                const nice = parseFloat(f[base + off + 1]) || 0;
-                                s.cpuSys = parseFloat(f[base + off + 2]) || 0;
-                                s.cpuIrq = parseFloat(f[base + off + 3]) || 0;
-                                // find idle — look for last big value or field at +8/+9
-                                if (f[base + off + 8] !== undefined) {
-                                    s.cpuIdle = parseFloat(f[base + off + 8]) || 0;
-                                } else if (f[base + off + 4] !== undefined) {
-                                    s.cpuIdle = parseFloat(f[base + off + 4]) || 0;
-                                }
+
+                            if (f[base] !== undefined) {
+                                s.cpuSys = parseFloat(f[base + 2]) || 0;
+                                s.cpuUsr = parseFloat(f[base + 3]) || 0;
+                                const nice = parseFloat(f[base + 4]) || 0;
+                                s.cpuIrq = parseFloat(f[base + 7]) || 0;
+                                s.cpuSoftIrq = parseFloat(f[base + 8]) || 0;
+                                s.cpuIdle = parseFloat(f[base + 5]) || 0;
+                                s.cpuWait = parseFloat(f[base + 6]) || 0;
+
                                 // Normalize to 100%
-                                const total = s.cpuUsr + nice + s.cpuSys + s.cpuIrq + s.cpuIdle;
+                                const total = s.cpuUsr + nice + s.cpuSys + s.cpuIrq + s.cpuIdle + s.cpuWait + s.cpuSoftIrq;
                                 if (total > 200) { // values are in ticks, convert
-                                    const sum = s.cpuUsr + nice + s.cpuSys + s.cpuIrq + s.cpuIdle + 1;
+                                    const sum = s.cpuUsr + nice + s.cpuSys + s.cpuIrq + s.cpuIdle + s.cpuWait + s.cpuSoftIrq + 1;
                                     s.cpuUsr = (s.cpuUsr / sum) * 100;
                                     s.cpuSys = (s.cpuSys / sum) * 100;
                                     s.cpuIrq = (s.cpuIrq / sum) * 100;
@@ -698,21 +689,21 @@
                         }
 
                         else if (type === 'MEM') {
-                            // MEM host date time interval pagesize tot free cache dirty rss slab sreclaimable
-                            // common: tot free cache dirty...
-                            const base = 5;
+                            const base = 6;
                             const pagesz = parseInt(f[base]) || 4096;
                             const toKB = v => (parseInt(v) || 0) * pagesz / 1024;
                             const tot = toKB(f[base + 1]);
                             const free = toKB(f[base + 2]);
                             const cache = toKB(f[base + 3]);
+                            const bfr = toKB(f[base + 4]);
+                            const slab = toKB(f[base + 5]);
                             s.memFree = free;
                             s.memCache = cache;
-                            s.memUsed = Math.max(0, tot - free - cache);
+                            s.memUsed = Math.max(0, tot - free - cache - bfr - slab);
                         }
 
                         else if (type === 'SWP') {
-                            const base = 5;
+                            const base = 6;
                             const pagesz = parseInt(f[base]) || 4096;
                             const toKB = v => (parseInt(v) || 0) * pagesz / 1024;
                             const tot = toKB(f[base + 1]);
@@ -722,23 +713,23 @@
 
                         else if (type === 'DSK' || type === 'LVM' || type === 'MDD') {
                             // DSK host date time interval diskname # reads rdsize # writes wrsize ...
-                            const base = 5;
+                            const base = 6;
                             // skip disk name at base, reads at base+1, rdsize at base+2
                             const reads = parseInt(f[base + 1]) || 0;
                             const rdsize = parseInt(f[base + 2]) || 0; // avg read size in 512b sectors
                             const writes = parseInt(f[base + 3]) || 0;
                             const wrsize = parseInt(f[base + 4]) || 0;
                             const interval = parseFloat(f[4]) || 1;
-                            s.diskRead += (reads * rdsize * 512 / 1024) / interval;  // KB/s
-                            s.diskWrite += (writes * wrsize * 512 / 1024) / interval;
+                            s.diskRead += (rdsize * 512 / 1024) / interval;  // KB/s
+                            s.diskWrite += (wrsize * 512 / 1024) / interval;
                         }
 
                         else if (type === 'NET') {
                             // NET host date time interval ifname pcki sizrci pcko sizrco ...
-                            const base = 5;
+                            const base = 6;
                             const name = f[base] || '';
                             if (name === 'upper') return; // skip aggregate
-                            const interval = parseFloat(f[4]) || 1;
+                            const interval = parseFloat(f[base - 1]) || 1;
                             const pcki = parseInt(f[base + 1]) || 0;
                             const sizrci = parseInt(f[base + 2]) || 0; // recv bytes
                             const pcko = parseInt(f[base + 3]) || 0;
@@ -749,8 +740,8 @@
 
                         else if (type === 'PRC' || type === 'PRCTOTALS') {
                             // PRC host date time interval #proc #zombie #threads #running nrcpu
-                            const base = 5;
-                            s.procs = parseInt(f[base]) || 0;
+                            // const base = 5;
+                            s.procs++
                         }
 
                         else if (type === 'CPU' && false) {
