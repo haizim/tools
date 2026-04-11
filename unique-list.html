@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="id" x-data="app()" :class="{ 'dark': dark }" class="transition-colors duration-300">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Unique List</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: #f5f3ee;
+            min-height: 100vh;
+        }
+
+        .dark body {
+            background-color: #0f0f0f;
+        }
+
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 256px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2ddd6;
+        }
+
+        .dark .card {
+            background: #1a1a1a;
+            border-color: #2a2a2a;
+        }
+
+        textarea {
+            resize: none;
+            outline: none;
+            font-family: 'DM Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        textarea:focus {
+            box-shadow: 0 0 0 2px #c8a96e40;
+        }
+
+        .badge {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.04em;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: #f5f3ee;
+            transition: all 0.18s ease;
+        }
+
+        .btn-primary:hover {
+            background: #333;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .dark .btn-primary {
+            background: #f5f3ee;
+            color: #1a1a1a;
+        }
+
+        .dark .btn-primary:hover {
+            background: #ddd8d0;
+        }
+
+        .btn-ghost {
+            border: 1px solid #d1ccc4;
+            color: #555;
+            background: transparent;
+            transition: all 0.18s ease;
+        }
+
+        .btn-ghost:hover {
+            background: #f0ece5;
+            border-color: #b8b2aa;
+        }
+
+        .dark .btn-ghost {
+            border-color: #333;
+            color: #aaa;
+        }
+
+        .dark .btn-ghost:hover {
+            background: #222;
+            border-color: #444;
+        }
+
+        .stat-pill {
+            background: #f0ece5;
+            color: #666;
+            border: 1px solid #e2ddd6;
+        }
+
+        .dark .stat-pill {
+            background: #222;
+            color: #888;
+            border-color: #2e2e2e;
+        }
+
+        .tag-removed {
+            background: #fff0ee;
+            color: #c0543a;
+            border: 1px solid #f5cfc7;
+        }
+
+        .dark .tag-removed {
+            background: #2a1a18;
+            color: #e07060;
+            border-color: #3a2520;
+        }
+
+        .tag-kept {
+            background: #eef4ee;
+            color: #3a7a3a;
+            border: 1px solid #c7dfc7;
+        }
+
+        .dark .tag-kept {
+            background: #182518;
+            color: #60a060;
+            border-color: #203820;
+        }
+
+        .divider-label {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #aaa;
+        }
+
+        .dark .divider-label {
+            color: #555;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 9999;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .panel-label {
+            font-family: 'Syne', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Arrow connector */
+        .arrow-connector {
+            color: #c8a96e;
+        }
+
+        .dark .arrow-connector {
+            color: #a08040;
+        }
+
+        .separator-line {
+            border-color: #e2ddd6;
+        }
+
+        .dark .separator-line {
+            border-color: #2a2a2a;
+        }
+
+        .input-textarea {
+            background: #faf9f6;
+            border: 1px solid #e2ddd6;
+            color: #222;
+        }
+
+        .input-textarea:focus {
+            border-color: #c8a96e;
+        }
+
+        .dark .input-textarea {
+            background: #141414;
+            border-color: #2a2a2a;
+            color: #e0ddd8;
+        }
+
+        .dark .input-textarea:focus {
+            border-color: #a08040;
+        }
+
+        .input-textarea::placeholder {
+            color: #bbb;
+        }
+
+        .dark .input-textarea::placeholder {
+            color: #444;
+        }
+
+        .app-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+        }
+
+        .counter-accent {
+            color: #c8a96e;
+        }
+
+        .dark .counter-accent {
+            color: #a08040;
+        }
+
+        /* Case option buttons */
+        .case-btn {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            transition: all 0.15s;
+        }
+
+        .case-btn.active {
+            background: #1a1a1a;
+            color: #f5f3ee;
+            border-color: #1a1a1a;
+        }
+
+        .dark .case-btn.active {
+            background: #f5f3ee;
+            color: #1a1a1a;
+            border-color: #f5f3ee;
+        }
+    </style>
+</head>
+
+<body class="relative">
+    <div x-data="app()" :class="{ 'dark': dark }">
+
+        <!-- Toast -->
+        <div class="toast card rounded-full px-4 py-2 flex items-center gap-2 shadow-lg"
+            :class="{ 'show': toastVisible }">
+            <span class="material-icons-round text-base counter-accent">check_circle</span>
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="toastMsg"></span>
+        </div>
+
+        <div class="min-h-screen flex flex-col relative z-10">
+
+            <!-- Header -->
+            <header class="border-b separator-line px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: #c8a96e;">
+                        <span class="material-icons-round text-white text-base">filter_list</span>
+                    </div>
+                    <h1 class="app-title text-lg text-gray-900 dark:text-gray-100">Unique List</h1>
+                </div>
+
+                <button @click="dark = !dark; saveDark()"
+                    class="btn-ghost rounded-lg w-9 h-9 flex items-center justify-center">
+                    <span class="material-icons-round text-base" x-text="dark ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </header>
+
+            <!-- Main content -->
+            <main class="flex-1 p-6 max-w-5xl mx-auto w-full">
+
+                <!-- Options bar -->
+                <div class="card rounded-xl px-4 py-3 mb-5 flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="panel-label text-gray-500 dark:text-gray-500">Case</span>
+                        <div class="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                            <button @click="caseMode = 'original'" :class="{ 'active': caseMode === 'original' }"
+                                class="case-btn btn-ghost border-0 px-3 py-1.5 rounded-none">
+                                Aa
+                            </button>
+                            <button @click="caseMode = 'lower'" :class="{ 'active': caseMode === 'lower' }"
+                                class="case-btn btn-ghost border-0 border-l px-3 py-1.5 rounded-none border-gray-200 dark:border-gray-700">
+                                aa
+                            </button>
+                            <button @click="caseMode = 'upper'" :class="{ 'active': caseMode === 'upper' }"
+                                class="case-btn btn-ghost border-0 border-l px-3 py-1.5 rounded-none border-gray-200 dark:border-gray-700">
+                                AA
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="panel-label text-gray-500 dark:text-gray-500">Trim</span>
+                        <button @click="trimWhitespace = !trimWhitespace"
+                            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200"
+                            :class="trimWhitespace ? 'bg-yellow-600 dark:bg-yellow-700' : 'bg-gray-300 dark:bg-gray-600'">
+                            <span
+                                class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-200 shadow"
+                                :class="trimWhitespace ? 'translate-x-[18px]' : 'translate-x-1'"></span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="panel-label text-gray-500 dark:text-gray-500">Kosongkan</span>
+                        <button @click="ignoreEmpty = !ignoreEmpty"
+                            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200"
+                            :class="ignoreEmpty ? 'bg-yellow-600 dark:bg-yellow-700' : 'bg-gray-300 dark:bg-gray-600'">
+                            <span
+                                class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-200 shadow"
+                                :class="ignoreEmpty ? 'translate-x-[18px]' : 'translate-x-1'"></span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="panel-label text-gray-500 dark:text-gray-500">Urutan</span>
+                        <div class="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                            <button @click="sortMode = 'none'" :class="{ 'active': sortMode === 'none' }"
+                                class="case-btn btn-ghost border-0 px-3 py-1.5 rounded-none">
+                                —
+                            </button>
+                            <button @click="sortMode = 'asc'" :class="{ 'active': sortMode === 'asc' }"
+                                class="case-btn btn-ghost border-0 border-l px-3 py-1.5 rounded-none border-gray-200 dark:border-gray-700">
+                                A→Z
+                            </button>
+                            <button @click="sortMode = 'desc'" :class="{ 'active': sortMode === 'desc' }"
+                                class="case-btn btn-ghost border-0 border-l px-3 py-1.5 rounded-none border-gray-200 dark:border-gray-700">
+                                Z→A
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two-panel layout -->
+                <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+
+                    <!-- INPUT panel -->
+                    <div class="card rounded-xl overflow-hidden">
+                        <div class="px-4 pt-4 pb-3 flex items-center justify-between border-b separator-line">
+                            <span class="panel-label text-gray-500 dark:text-gray-500">Input</span>
+                            <div class="flex items-center gap-2">
+                                <span class="badge stat-pill rounded-full px-2.5 py-0.5">
+                                    <span x-text="inputLines"></span> baris
+                                </span>
+                                <button @click="inputText = ''" title="Kosongkan"
+                                    class="btn-ghost rounded-lg w-7 h-7 flex items-center justify-center">
+                                    <span class="material-icons-round text-sm">close</span>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea x-model="inputText" class="input-textarea w-full h-72 p-4 rounded-none"
+                            placeholder="Tempel list di sini&#10;satu item per baris&#10;&#10;apel&#10;mangga&#10;apel&#10;jeruk&#10;mangga"></textarea>
+                        <div class="px-4 py-3 border-t separator-line flex gap-2">
+                            <button @click="pasteFromClipboard()"
+                                class="btn-ghost rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5">
+                                <span class="material-icons-round text-sm">content_paste</span>
+                                Paste
+                            </button>
+                            <button @click="loadSample()"
+                                class="btn-ghost rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5">
+                                <span class="material-icons-round text-sm">science</span>
+                                Contoh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Arrow / Process button -->
+                    <div class="flex flex-col items-center justify-center gap-3 py-4 md:py-16">
+                        <button @click="process()"
+                            class="btn-primary rounded-xl px-4 py-3 flex flex-col items-center gap-1.5 shadow-sm">
+                            <span class="material-icons-round text-xl">auto_fix_high</span>
+                            <span class="text-xs font-semibold font-display tracking-wide">Proses</span>
+                        </button>
+                        <span class="arrow-connector material-icons-round text-2xl hidden md:block">arrow_forward</span>
+
+                        <!-- Stats -->
+                        <div x-show="processed" class="flex flex-col items-center gap-1 mt-1">
+                            <div class="badge tag-removed rounded-full px-2.5 py-0.5 flex items-center gap-1">
+                                <span class="material-icons-round text-xs">remove_circle_outline</span>
+                                <span x-text="removedCount + ' duplikat'"></span>
+                            </div>
+                            <div class="badge tag-kept rounded-full px-2.5 py-0.5 flex items-center gap-1 mt-0.5">
+                                <span class="material-icons-round text-xs">check_circle_outline</span>
+                                <span x-text="outputLines + ' unik'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OUTPUT panel -->
+                    <div class="card rounded-xl overflow-hidden">
+                        <div class="px-4 pt-4 pb-3 flex items-center justify-between border-b separator-line">
+                            <span class="panel-label text-gray-500 dark:text-gray-500">Output</span>
+                            <div class="flex items-center gap-2">
+                                <span class="badge stat-pill rounded-full px-2.5 py-0.5">
+                                    <span x-text="outputLines"></span> baris
+                                </span>
+                            </div>
+                        </div>
+                        <textarea x-model="outputText" readonly class="input-textarea w-full h-72 p-4 rounded-none"
+                            placeholder="Hasil akan muncul di sini..."></textarea>
+                        <div class="px-4 py-3 border-t separator-line flex gap-2">
+                            <button @click="copyOutput()" :disabled="!outputText"
+                                class="btn-primary rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="material-icons-round text-sm">content_copy</span>
+                                Salin
+                            </button>
+                            <button @click="clearOutput()" :disabled="!outputText"
+                                class="btn-ghost rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="material-icons-round text-sm">delete_outline</span>
+                                Hapus
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Auto-process indicator -->
+                <p class="text-center text-xs text-gray-400 dark:text-gray-600 mt-4 font-mono">
+                    Tekan <kbd
+                        class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">Proses</kbd>
+                    atau aktifkan live preview di bawah
+                    &nbsp;·&nbsp;
+                    <button @click="autoProcess = !autoProcess" class="underline underline-offset-2 transition-colors"
+                        :class="autoProcess ? 'counter-accent' : 'text-gray-400 dark:text-gray-600'"
+                        x-text="autoProcess ? '⚡ Live aktif' : '⚡ Live mati'"></button>
+                </p>
+
+            </main>
+
+            <!-- Footer -->
+            <footer class="border-t separator-line px-6 py-3 flex items-center justify-center">
+                <span class="text-xs text-gray-400 dark:text-gray-600 font-mono">
+                    Mini Alpine App Gen · Unique List
+                </span>
+            </footer>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        function app() {
+            return {
+                dark: false,
+                inputText: '',
+                outputText: '',
+                caseMode: 'original',   // 'original' | 'lower' | 'upper'
+                trimWhitespace: true,
+                ignoreEmpty: true,
+                sortMode: 'none',        // 'none' | 'asc' | 'desc'
+                autoProcess: false,
+                processed: false,
+                removedCount: 0,
+                toastVisible: false,
+                toastMsg: '',
+                _toastTimer: null,
+
+                init() {
+                    // Dark mode from localStorage or system preference
+                    const saved = localStorage.getItem('ul-dark');
+                    if (saved !== null) {
+                        this.dark = saved === '1';
+                    } else {
+                        this.dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    }
+
+                    // Watch for live processing
+                    this.$watch('inputText', () => { if (this.autoProcess) this.process(); });
+                    this.$watch('caseMode', () => { if (this.autoProcess) this.process(); });
+                    this.$watch('trimWhitespace', () => { if (this.autoProcess) this.process(); });
+                    this.$watch('ignoreEmpty', () => { if (this.autoProcess) this.process(); });
+                    this.$watch('sortMode', () => { if (this.autoProcess) this.process(); });
+                },
+
+                saveDark() {
+                    localStorage.setItem('ul-dark', this.dark ? '1' : '0');
+                },
+
+                get inputLines() {
+                    if (!this.inputText.trim()) return 0;
+                    return this.inputText.split('\n').filter(l => l.trim() !== '' || !this.ignoreEmpty).length;
+                },
+
+                get outputLines() {
+                    if (!this.outputText.trim()) return 0;
+                    return this.outputText.split('\n').filter(l => l !== '').length;
+                },
+
+                process() {
+                    if (!this.inputText.trim()) {
+                        this.outputText = '';
+                        this.removedCount = 0;
+                        this.processed = false;
+                        return;
+                    }
+
+                    let lines = this.inputText.split('\n');
+
+                    // Trim
+                    if (this.trimWhitespace) {
+                        lines = lines.map(l => l.trim());
+                    }
+
+                    // Ignore empty
+                    if (this.ignoreEmpty) {
+                        lines = lines.filter(l => l !== '');
+                    }
+
+                    const totalBefore = lines.length;
+
+                    // Apply case
+                    let normalizedLines = lines.map(l => {
+                        if (this.caseMode === 'lower') return l.toLowerCase();
+                        if (this.caseMode === 'upper') return l.toUpperCase();
+                        return l;
+                    });
+
+                    // Deduplicate (case-insensitive key by caseMode logic)
+                    const seen = new Set();
+                    const unique = [];
+                    for (let i = 0; i < normalizedLines.length; i++) {
+                        const key = this.caseMode === 'original'
+                            ? normalizedLines[i].toLowerCase()
+                            : normalizedLines[i];
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            unique.push(normalizedLines[i]);
+                        }
+                    }
+
+                    // Sort
+                    let result = unique;
+                    if (this.sortMode === 'asc') {
+                        result = [...unique].sort((a, b) => a.localeCompare(b));
+                    } else if (this.sortMode === 'desc') {
+                        result = [...unique].sort((a, b) => b.localeCompare(a));
+                    }
+
+                    this.removedCount = totalBefore - result.length;
+                    this.outputText = result.join('\n');
+                    this.processed = true;
+                },
+
+                async copyOutput() {
+                    if (!this.outputText) return;
+                    try {
+                        await navigator.clipboard.writeText(this.outputText);
+                        this.showToast('Output disalin ke clipboard!');
+                    } catch {
+                        this.showToast('Gagal menyalin — coba manual');
+                    }
+                },
+
+                async pasteFromClipboard() {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        this.inputText = text;
+                        this.showToast('Teks ditempel dari clipboard');
+                    } catch {
+                        this.showToast('Izin clipboard diperlukan');
+                    }
+                },
+
+                clearOutput() {
+                    this.outputText = '';
+                    this.removedCount = 0;
+                    this.processed = false;
+                },
+
+                loadSample() {
+                    this.inputText = `apel\nmangga\nJeruk\napel\nMangga\npisang\nJERUK\nstrawberry\napel\npisang\nanggur\nstrawberry`;
+                    if (this.autoProcess) this.process();
+                    this.showToast('Data contoh dimuat');
+                },
+
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    this.toastVisible = true;
+                    clearTimeout(this._toastTimer);
+                    this._toastTimer = setTimeout(() => { this.toastVisible = false; }, 2200);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
