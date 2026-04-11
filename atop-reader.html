@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="id" x-data="atopApp()" x-init="init()" :class="{ 'dark': darkMode }">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ATOP Log Reader</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['DM Sans', 'sans-serif'],
+                        display: ['Syne', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <script src="assets/js/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        body {
+            background-color: #0d0f14;
+            color: #e2e8f0;
+        }
+
+        .dark body,
+        body {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        /* Drop zone */
+        .drop-zone {
+            background: repeating-linear-gradient(-45deg,
+                    transparent,
+                    transparent 8px,
+                    rgba(99, 102, 241, 0.04) 8px,
+                    rgba(99, 102, 241, 0.04) 16px);
+            transition: all 0.25s ease;
+        }
+
+        .drop-zone.drag-over {
+            background: repeating-linear-gradient(-45deg,
+                    transparent,
+                    transparent 8px,
+                    rgba(99, 102, 241, 0.12) 8px,
+                    rgba(99, 102, 241, 0.12) 16px);
+            border-color: #818cf8 !important;
+        }
+
+        /* Chart card */
+        .chart-card {
+            background: #13161e;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .chart-card-header {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.03));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .light .chart-card {
+            background: #fff;
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        .light .chart-card-header {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02));
+        }
+
+        /* Tab */
+        .tab-btn {
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.15s;
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tab-btn:hover {
+            color: #c7d2fe;
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .tab-btn.active {
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        /* scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2d3148;
+            border-radius: 3px;
+        }
+
+        /* light mode overrides */
+        .light-mode body {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        canvas {
+            max-height: 260px;
+        }
+
+        .toast {
+            animation: slideIn 0.3s ease, fadeOut 0.4s ease 2.6s forwards;
+        }
+
+
+        /* Time input */
+        input[type="time"].time-input {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            outline: none;
+            transition: border-color 0.15s, color 0.15s;
+            color-scheme: dark;
+        }
+
+        input[type="time"].time-input:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+            color: #c7d2fe;
+        }
+
+        input[type="time"].time-input.has-value {
+            border-color: rgba(99, 102, 241, 0.4);
+            color: #a5b4fc;
+        }
+
+        .light-time input[type="time"].time-input {
+            border-color: rgba(0, 0, 0, 0.12);
+            color: #64748b;
+            color-scheme: light;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen transition-colors duration-300"
+    :class="darkMode ? 'bg-[#0d0f14] text-slate-200' : 'bg-slate-100 text-slate-800'">
+
+    <!-- HEADER -->
+    <header class="sticky top-0 z-40 border-b backdrop-blur-md"
+        :class="darkMode ? 'bg-[#0d0f14]/80 border-white/5' : 'bg-white/80 border-black/8'">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center">
+                    <span class="material-icons-round text-indigo-400 text-[18px]">monitoring</span>
+                </div>
+                <div>
+                    <h1 class="font-display text-base font-700 leading-none tracking-tight"
+                        :class="darkMode ? 'text-white' : 'text-slate-900'">ATOP Reader</h1>
+                    <p class="text-[10px] font-mono mt-0.5" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+                        parseable log visualizer</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- File info -->
+                <template x-if="fileName">
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono"
+                        :class="darkMode ? 'bg-white/5 text-slate-400' : 'bg-black/5 text-slate-500'">
+                        <span class="material-icons-round text-[14px] text-indigo-400">description</span>
+                        <span x-text="fileName" class="max-w-[160px] truncate"></span>
+                        <span x-text="'· ' + parsedSamples.length + ' samples'"></span>
+                    </div>
+                </template>
+
+                <!-- Dark mode toggle -->
+                <button @click="darkMode = !darkMode; savePref()"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center border transition-all" :class="darkMode
+                  ? 'bg-white/5 border-white/10 text-yellow-300 hover:bg-white/10'
+                  : 'bg-black/5 border-black/10 text-slate-600 hover:bg-black/10'">
+                    <span class="material-icons-round text-[18px]"
+                        x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+
+                <!-- Reset -->
+                <template x-if="fileName">
+                    <button @click="resetAll()"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center border transition-all" :class="darkMode
+                    ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/30'
+                    : 'bg-black/5 border-black/10 text-slate-500 hover:bg-red-500/10 hover:text-red-500'">
+                        <span class="material-icons-round text-[18px]">close</span>
+                    </button>
+                </template>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- DROP ZONE -->
+        <div x-show="!fileName" x-cloak>
+            <div class="drop-zone border-2 border-dashed rounded-2xl flex flex-col items-center justify-center py-24 cursor-pointer transition-all"
+                :class="darkMode ? 'border-white/10 hover:border-indigo-400/40' : 'border-black/15 hover:border-indigo-400/60'"
+                @dragover.prevent="$el.classList.add('drag-over')"
+                @dragleave.prevent="$el.classList.remove('drag-over')" @drop.prevent="onDrop($event)"
+                @click="$refs.fileInput.click()">
+                <div
+                    class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-400/20 flex items-center justify-center mb-5">
+                    <span class="material-icons-round text-indigo-400 text-[32px]">upload_file</span>
+                </div>
+                <p class="font-display text-xl font-700 mb-1" :class="darkMode ? 'text-white' : 'text-slate-800'">Drop
+                    file ATOP di sini</p>
+                <p class="text-sm mb-5" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+                    atau klik untuk memilih file dari perangkat
+                </p>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    <template x-for="tag in ['atop -P ALL', 'parseable output', 'text / .log / .txt']">
+                        <span class="px-3 py-1 rounded-full text-xs font-mono border"
+                            :class="darkMode ? 'border-white/10 text-slate-500' : 'border-black/10 text-slate-400'"
+                            x-text="tag"></span>
+                    </template>
+                </div>
+                <input type="file" x-ref="fileInput" class="hidden" accept=".log,.txt,.atop,*"
+                    @change="onFileSelect($event)" />
+            </div>
+
+            <!-- Format hint -->
+            <div class="mt-6 rounded-xl p-4 border text-xs font-mono"
+                :class="darkMode ? 'bg-white/3 border-white/6 text-slate-500' : 'bg-black/3 border-black/6 text-slate-400'">
+                <p class="font-semibold mb-2 flex items-center gap-1.5">
+                    <span class="material-icons-round text-[14px] text-indigo-400">info</span>
+                    Format yang didukung — output <code>atop -P CPU,MEM,DSK,NET,PRC,SWP -r logfile</code> atau atop
+                    parseable
+                </p>
+                <p class="leading-relaxed opacity-70">
+                    Contoh baris: <span class="text-indigo-300">SEP | ... | CPU | hostname | ... | usr | sys | irq |
+                        idle | ...</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div x-show="fileName && parsedSamples.length > 0" x-cloak>
+
+            <!-- Summary bar -->
+            <div class="flex flex-wrap gap-3 mb-6">
+                <template x-for="s in summaryStats" :key="s.label">
+                    <div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border flex-1 min-w-[140px]"
+                        :class="darkMode ? 'bg-[#13161e] border-white/6' : 'bg-white border-black/8 shadow-sm'">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center"
+                            :style="'background:' + s.color + '1a; border:1px solid ' + s.color + '33'">
+                            <span class="material-icons-round text-[16px]" :style="'color:' + s.color"
+                                x-text="s.icon"></span>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-mono leading-none mb-1"
+                                :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="s.label"></p>
+                            <p class="text-sm font-display font-700 leading-none"
+                                :class="darkMode ? 'text-white' : 'text-slate-800'" x-text="s.value"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Time range filter -->
+            <div class="flex flex-wrap items-center gap-3 mb-5" :class="darkMode ? '' : 'light-time'">
+                <span class="text-xs font-mono" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">Rentang
+                    waktu:</span>
+                <template x-for="r in timeRanges" :key="r.label">
+                    <button class="tab-btn" :class="{ active: timeRange === r.val && !timeFrom && !timeTo }"
+                        @click="timeRange = r.val; timeFrom = ''; timeTo = ''; refreshCharts()"
+                        x-text="r.label"></button>
+                </template>
+
+                <!-- Custom time inputs -->
+                <div class="flex items-center gap-1.5">
+                    <span class="material-icons-round text-[14px]"
+                        :class="darkMode ? 'text-slate-600' : 'text-slate-400'">access_time</span>
+                    <input type="time" x-model="timeFrom" :class="['time-input', timeFrom ? 'has-value' : '']"
+                        @change="timeRange = 'all'; refreshCharts()" :title="'Dari jam'" />
+                    <span class="text-xs font-mono" :class="darkMode ? 'text-slate-600' : 'text-slate-400'">–</span>
+                    <input type="time" x-model="timeTo" :class="['time-input', timeTo ? 'has-value' : '']"
+                        @change="timeRange = 'all'; refreshCharts()" :title="'Sampai jam'" />
+                    <button x-show="timeFrom || timeTo" @click="timeFrom = ''; timeTo = ''; refreshCharts()"
+                        class="ml-0.5 w-5 h-5 flex items-center justify-center rounded-full transition-all"
+                        :class="darkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-400/10' : 'text-slate-400 hover:text-red-500'"
+                        title="Reset filter waktu">
+                        <span class="material-icons-round text-[13px]">close</span>
+                    </button>
+                </div>
+
+                <span class="ml-auto text-[11px] font-mono" :class="darkMode ? 'text-slate-600' : 'text-slate-400'">
+                    <span x-text="visibleSamples.length"></span> sampel ditampilkan
+                </span>
+            </div>
+
+            <!-- Charts grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+
+                <!-- CPU Chart -->
+                <div class="chart-card" :class="darkMode ? '' : '!bg-white !border-black/8'">
+                    <div class="chart-card-header px-4 py-3 flex items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="material-icons-round text-[18px] text-blue-400">memory</span>
+                            <span class="font-display font-700 text-sm"
+                                :class="darkMode ? 'text-white' : 'text-slate-800'">CPU Usage</span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-4">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Memory Chart -->
+                <div class="chart-card" :class="darkMode ? '' : '!bg-white !border-black/8'">
+                    <div class="chart-card-header px-4 py-3 flex items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="material-icons-round text-[18px] text-purple-400">storage</span>
+                            <span class="font-display font-700 text-sm"
+                                :class="darkMode ? 'text-white' : 'text-slate-800'">Memory</span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-4">
+                        <canvas id="memChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Disk I/O Chart -->
+                <div class="chart-card" :class="darkMode ? '' : '!bg-white !border-black/8'">
+                    <div class="chart-card-header px-4 py-3 flex items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="material-icons-round text-[18px] text-amber-400">storage</span>
+                            <span class="font-display font-700 text-sm"
+                                :class="darkMode ? 'text-white' : 'text-slate-800'">Disk I/O</span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-4">
+                        <canvas id="diskChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Network Chart -->
+                <div class="chart-card" :class="darkMode ? '' : '!bg-white !border-black/8'">
+                    <div class="chart-card-header px-4 py-3 flex items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="material-icons-round text-[18px] text-cyan-400">wifi</span>
+                            <span class="font-display font-700 text-sm"
+                                :class="darkMode ? 'text-white' : 'text-slate-800'">Network</span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-4">
+                        <canvas id="netChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Load Average Chart (full width) -->
+                <div class="chart-card xl:col-span-2" :class="darkMode ? '' : '!bg-white !border-black/8'">
+                    <div class="chart-card-header px-4 py-3 flex items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="material-icons-round text-[18px] text-green-400">speed</span>
+                            <span class="font-display font-700 text-sm"
+                                :class="darkMode ? 'text-white' : 'text-slate-800'">Load Average & Process Count</span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-4">
+                        <canvas id="loadChart" style="max-height:200px"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Raw data table toggle -->
+            <div class="mt-6">
+                <div class="flex items-center gap-2">
+                    <button @click="showRaw = !showRaw"
+                        class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg border transition-all"
+                        :class="darkMode ? 'border-white/10 text-slate-500 hover:border-indigo-400/30 hover:text-slate-300' : 'border-black/10 text-slate-500 hover:text-slate-700'">
+                        <span class="material-icons-round text-[14px]"
+                            x-text="showRaw ? 'expand_less' : 'expand_more'"></span>
+                        <span
+                            x-text="showRaw ? 'Sembunyikan data mentah' : 'Lihat data mentah (' + parsedSamples.length + ' baris)'"></span>
+                    </button>
+                    <button @click="exportExcel()"
+                        class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg border transition-all"
+                        :class="darkMode ? 'border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-400/50' : 'border-green-600/30 text-green-600 hover:bg-green-500/10'">
+                        <span class="material-icons-round text-[14px]">download</span>
+                        Export Excel
+                    </button>
+                </div>
+
+                <div x-show="showRaw" x-transition class="mt-3 rounded-xl overflow-auto border"
+                    :class="darkMode ? 'bg-[#0a0c11] border-white/6' : 'bg-slate-50 border-black/8'"
+                    style="max-height:320px">
+                    <table class="w-full text-[11px] font-mono">
+                        <thead class="sticky top-0"
+                            :class="darkMode ? 'bg-[#13161e] text-slate-500' : 'bg-white text-slate-400'">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Time</th>
+                                <th class="px-3 py-2 text-right">CPU%</th>
+                                <th class="px-3 py-2 text-right">Mem Used</th>
+                                <th class="px-3 py-2 text-right">Load 1m</th>
+                                <th class="px-3 py-2 text-right">Procs</th>
+                                <th class="px-3 py-2 text-right">Disk R KB/s</th>
+                                <th class="px-3 py-2 text-right">Net Recv KB/s</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(s, i) in parsedSamples" :key="i">
+                                <tr class="border-t transition-colors hover:bg-indigo-500/5"
+                                    :class="darkMode ? 'border-white/4 text-slate-400' : 'border-black/5 text-slate-600'">
+                                    <td class="px-3 py-1.5" x-text="s.time"></td>
+                                    <td class="px-3 py-1.5 text-right" x-text="(s.cpuUsr + s.cpuSys).toFixed(1) + '%'">
+                                    </td>
+                                    <td class="px-3 py-1.5 text-right" x-text="fmtMem(s.memUsed)"></td>
+                                    <td class="px-3 py-1.5 text-right" x-text="s.load1.toFixed(2)"></td>
+                                    <td class="px-3 py-1.5 text-right" x-text="s.procs"></td>
+                                    <td class="px-3 py-1.5 text-right" x-text="s.diskRead.toFixed(0)"></td>
+                                    <td class="px-3 py-1.5 text-right" x-text="s.netRecv.toFixed(0)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- EMPTY / ERROR STATE -->
+        <div x-show="fileName && parsedSamples.length === 0" x-cloak class="text-center py-20">
+            <span class="material-icons-round text-[48px] text-red-400 opacity-60 block mb-3">error_outline</span>
+            <p class="font-display font-700 text-lg" :class="darkMode ? 'text-white' : 'text-slate-800'">Format tidak
+                dikenali</p>
+            <p class="text-sm mt-1" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+                Pastikan file merupakan output <code class="font-mono text-indigo-400">atop -P ALL</code> dalam format
+                parseable.
+            </p>
+            <button @click="resetAll()"
+                class="mt-4 px-5 py-2 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-400/30 text-sm font-mono hover:bg-indigo-500/25 transition-all">
+                Coba file lain
+            </button>
+        </div>
+
+    </main>
+
+    <!-- TOAST -->
+    <div x-show="toastMsg" x-cloak
+        class="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-sm font-mono toast"
+        :class="darkMode ? 'bg-[#1e2130] border border-white/10 text-slate-300' : 'bg-white border border-black/8 text-slate-700 shadow-xl'">
+        <span class="material-icons-round text-[16px] text-indigo-400">check_circle</span>
+        <span x-text="toastMsg"></span>
+    </div>
+
+    <script>
+        function atopApp() {
+            return {
+                darkMode: true,
+                fileName: '',
+                parsedSamples: [],
+                showRaw: false,
+                toastMsg: '',
+                timeRange: 'all',
+                timeFrom: '',
+                timeTo: '',
+                charts: {},
+
+                timeRanges: [
+                    { label: 'Semua', val: 'all' },
+                    { label: '5 menit terakhir', val: '5m' },
+                    { label: '15 menit terakhir', val: '15m' },
+                    { label: '1 jam terakhir', val: '1h' },
+                ],
+
+
+                init() {
+                    const saved = localStorage.getItem('atop_dark');
+                    if (saved !== null) this.darkMode = saved === 'true';
+                    else this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                },
+
+                savePref() {
+                    localStorage.setItem('atop_dark', this.darkMode);
+                },
+
+                get summaryStats() {
+                    if (!this.parsedSamples.length) return [];
+                    const s = this.parsedSamples;
+                    const avgCpu = (s.reduce((a, b) => a + b.cpuUsr + b.cpuSys, 0) / s.length).toFixed(1);
+                    const maxLoad = Math.max(...s.map(x => x.load1)).toFixed(2);
+                    const lastMem = this.fmtMem(s[s.length - 1].memUsed);
+                    const totalDiskR = (s.reduce((a, b) => a + b.diskRead, 0) / s.length).toFixed(0);
+                    const duration = s.length > 1
+                        ? this.durationStr(s[0].time, s[s.length - 1].time)
+                        : '—';
+                    return [
+                        { label: 'Avg CPU', value: avgCpu + '%', icon: 'memory', color: '#60a5fa' },
+                        { label: 'Peak Load', value: maxLoad, icon: 'speed', color: '#22c55e' },
+                        { label: 'Mem Used (last)', value: lastMem, icon: 'storage', color: '#a78bfa' },
+                        { label: 'Avg Disk R', value: totalDiskR + ' KB/s', icon: 'storage', color: '#f59e0b' },
+                        { label: 'Durasi', value: duration, icon: 'schedule', color: '#94a3b8' },
+                    ];
+                },
+
+                durationStr(t1, t2) {
+                    if (!t1 || !t2) return '—';
+                    // Try parse HH:MM:SS
+                    const p = t => {
+                        const parts = t.split(':');
+                        if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                        return NaN;
+                    };
+                    const diff = p(t2) - p(t1);
+                    if (isNaN(diff) || diff < 0) return '—';
+                    if (diff < 60) return diff + 's';
+                    if (diff < 3600) return Math.floor(diff / 60) + 'm ' + (diff % 60) + 's';
+                    return Math.floor(diff / 3600) + 'h ' + Math.floor((diff % 3600) / 60) + 'm';
+                },
+
+                fmtMem(kb) {
+                    if (kb >= 1048576) return (kb / 1048576).toFixed(1) + ' GB';
+                    if (kb >= 1024) return (kb / 1024).toFixed(1) + ' MB';
+                    return kb + ' KB';
+                },
+
+                get visibleSamples() {
+                    let samples = this.parsedSamples;
+
+                    if (this.timeRange !== 'all') {
+                        const n = this.timeRange === '5m' ? 5 :
+                            this.timeRange === '15m' ? 15 :
+                                this.timeRange === '1h' ? 60 : Infinity;
+                        samples = samples.slice(-n);
+                    }
+
+                    if (this.timeFrom || this.timeTo) {
+                        samples = samples.filter(s => {
+                            const t = s.time.slice(0, 5); // HH:MM
+                            if (this.timeFrom && t < this.timeFrom) return false;
+                            if (this.timeTo && t > this.timeTo) return false;
+                            return true;
+                        });
+                    }
+
+                    return samples;
+                },
+
+                onDrop(e) {
+                    e.currentTarget.classList.remove('drag-over');
+                    const file = e.dataTransfer.files[0];
+                    if (file) this.loadFile(file);
+                },
+
+                onFileSelect(e) {
+                    const file = e.target.files[0];
+                    if (file) this.loadFile(file);
+                },
+
+                loadFile(file) {
+                    this.fileName = file.name;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.parseAtop(e.target.result);
+                    };
+                    reader.readAsText(file);
+                },
+
+                parseAtop(text) {
+                    const lines = text.split('\n').filter(l => l.trim());
+                    const samples = {};
+
+                    // atop parseable format: fields separated by spaces/tabs
+                    // Each line starts with record type e.g. CPU / MEM / DSK / NET / PRC
+                    // Format: <type> <hostname> <date> <time> <interval> <field1> <field2> ...
+                    // We group by timestamp (date+time)
+
+                    lines.forEach(line => {
+                        const f = line.trim().split(/\s+/);
+                        if (f.length < 6) return;
+
+                        const type = f[0].toUpperCase();
+                        // Skip separator lines like "SEP" or comment lines
+                        if (type === 'SEP' || type.startsWith('#') || type === 'RESET') return;
+
+                        // Common structure: TYPE hostname epoch_or_date time interval ...
+                        // Detect if field 2 is unix timestamp or date string
+                        let timeKey = '';
+                        // Try: f[2] = date (YYYY/MM/DD), f[3] = time (HH:MM:SS)
+                        // or:  f[2] = epoch timestamp
+                        if (f[2] && f[3] && f[3].match(/^\d{2}:\d{2}:\d{2}$/)) {
+                            timeKey = f[3]; // use time as key
+                        } else if (f[2] && f[2].match(/^\d{10}$/)) {
+                            // unix epoch
+                            const d = new Date(parseInt(f[2]) * 1000);
+                            timeKey = d.toTimeString().slice(0, 8);
+                        } else if (f[3] && f[3].match(/^\d{2}:\d{2}:\d{2}$/)) {
+                            timeKey = f[3];
+                        } else {
+                            // fallback: use index as key
+                            timeKey = f[2] || String(Object.keys(samples).length);
+                        }
+
+                        if (!samples[timeKey]) {
+                            samples[timeKey] = {
+                                time: timeKey,
+                                cpuUsr: 0, cpuSys: 0, cpuIrq: 0, cpuIdle: 100,
+                                memUsed: 0, memFree: 0, memCache: 0, memSwap: 0,
+                                diskRead: 0, diskWrite: 0,
+                                netRecv: 0, netSend: 0,
+                                load1: 0, load5: 0, load15: 0, procs: 0,
+                            };
+                        }
+
+                        const s = samples[timeKey];
+
+                        if (type === 'CPU') {
+                            // atop parseable CPU: CPU host date time interval #cpu sysfreq
+                            //   then: user nice system irq softirq steal guest guestnice idle wait
+                            // or compact: CPU host date time interval usr sys irq idle wait
+                            // field index from 0:
+                            // 0=CPU 1=host 2=date 3=time 4=interval 5=#cpu ...
+                            // Fields after interval depend on version. Try common layouts:
+                            const base = 5;
+                            // Check if f[base] looks like a cpu count (small number) or percentage
+                            let off = 0;
+                            if (parseInt(f[base]) < 256 && f[base + 1] !== undefined) off = 1; // skip #cpu
+                            // Extended: usr nice sys irq softirq steal guest guestnice idle wait
+                            if (f[base + off] !== undefined) {
+                                s.cpuUsr = parseFloat(f[base + off]) || 0;
+                                const nice = parseFloat(f[base + off + 1]) || 0;
+                                s.cpuSys = parseFloat(f[base + off + 2]) || 0;
+                                s.cpuIrq = parseFloat(f[base + off + 3]) || 0;
+                                // find idle — look for last big value or field at +8/+9
+                                if (f[base + off + 8] !== undefined) {
+                                    s.cpuIdle = parseFloat(f[base + off + 8]) || 0;
+                                } else if (f[base + off + 4] !== undefined) {
+                                    s.cpuIdle = parseFloat(f[base + off + 4]) || 0;
+                                }
+                                // Normalize to 100%
+                                const total = s.cpuUsr + nice + s.cpuSys + s.cpuIrq + s.cpuIdle;
+                                if (total > 200) { // values are in ticks, convert
+                                    const sum = s.cpuUsr + nice + s.cpuSys + s.cpuIrq + s.cpuIdle + 1;
+                                    s.cpuUsr = (s.cpuUsr / sum) * 100;
+                                    s.cpuSys = (s.cpuSys / sum) * 100;
+                                    s.cpuIrq = (s.cpuIrq / sum) * 100;
+                                    s.cpuIdle = (s.cpuIdle / sum) * 100;
+                                }
+                            }
+                        }
+
+                        else if (type === 'MEM') {
+                            // MEM host date time interval pagesize tot free cache dirty rss slab sreclaimable
+                            // common: tot free cache dirty...
+                            const base = 5;
+                            const pagesz = parseInt(f[base]) || 4096;
+                            const toKB = v => (parseInt(v) || 0) * pagesz / 1024;
+                            const tot = toKB(f[base + 1]);
+                            const free = toKB(f[base + 2]);
+                            const cache = toKB(f[base + 3]);
+                            s.memFree = free;
+                            s.memCache = cache;
+                            s.memUsed = Math.max(0, tot - free - cache);
+                        }
+
+                        else if (type === 'SWP') {
+                            const base = 5;
+                            const pagesz = parseInt(f[base]) || 4096;
+                            const toKB = v => (parseInt(v) || 0) * pagesz / 1024;
+                            const tot = toKB(f[base + 1]);
+                            const free = toKB(f[base + 2]);
+                            s.memSwap = Math.max(0, tot - free);
+                        }
+
+                        else if (type === 'DSK' || type === 'LVM' || type === 'MDD') {
+                            // DSK host date time interval diskname # reads rdsize # writes wrsize ...
+                            const base = 5;
+                            // skip disk name at base, reads at base+1, rdsize at base+2
+                            const reads = parseInt(f[base + 1]) || 0;
+                            const rdsize = parseInt(f[base + 2]) || 0; // avg read size in 512b sectors
+                            const writes = parseInt(f[base + 3]) || 0;
+                            const wrsize = parseInt(f[base + 4]) || 0;
+                            const interval = parseFloat(f[4]) || 1;
+                            s.diskRead += (reads * rdsize * 512 / 1024) / interval;  // KB/s
+                            s.diskWrite += (writes * wrsize * 512 / 1024) / interval;
+                        }
+
+                        else if (type === 'NET') {
+                            // NET host date time interval ifname pcki sizrci pcko sizrco ...
+                            const base = 5;
+                            const name = f[base] || '';
+                            if (name === 'upper') return; // skip aggregate
+                            const interval = parseFloat(f[4]) || 1;
+                            const pcki = parseInt(f[base + 1]) || 0;
+                            const sizrci = parseInt(f[base + 2]) || 0; // recv bytes
+                            const pcko = parseInt(f[base + 3]) || 0;
+                            const sizrco = parseInt(f[base + 4]) || 0; // send bytes
+                            s.netRecv += sizrci / 1024 / interval; // KB/s
+                            s.netSend += sizrco / 1024 / interval;
+                        }
+
+                        else if (type === 'PRC' || type === 'PRCTOTALS') {
+                            // PRC host date time interval #proc #zombie #threads #running nrcpu
+                            const base = 5;
+                            s.procs = parseInt(f[base]) || 0;
+                        }
+
+                        else if (type === 'CPU' && false) {
+                            // handled above
+                        }
+
+                        // Load average is often in PRG or PRC header
+                        else if (type === 'PRG' || type === 'PRCSYS') {
+                            const base = 5;
+                            s.load1 = parseFloat(f[base]) || s.load1;
+                            s.load5 = parseFloat(f[base + 1]) || s.load5;
+                            s.load15 = parseFloat(f[base + 2]) || s.load15;
+                        }
+
+                        // Generic load average fallback — some atop versions emit LOAD or include it in PRC
+                        if ((type === 'PRG' || type === 'PRC') && f.length > 10) {
+                            // scan for something that looks like load average (small decimal)
+                            for (let i = 5; i < Math.min(f.length - 2, 12); i++) {
+                                const v = parseFloat(f[i]);
+                                if (!isNaN(v) && v >= 0 && v < 200 && f[i].includes('.')) {
+                                    if (!s.load1 || v > 0) {
+                                        s.load1 = parseFloat(f[i]) || s.load1;
+                                        s.load5 = parseFloat(f[i + 1]) || s.load5;
+                                        s.load15 = parseFloat(f[i + 2]) || s.load15;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    this.parsedSamples = Object.values(samples).sort((a, b) => a.time.localeCompare(b.time));
+
+                    if (this.parsedSamples.length > 0) {
+                        this.$nextTick(() => {
+                            this.buildCharts();
+                            this.showToast('✓ ' + this.parsedSamples.length + ' sampel berhasil diparsing');
+                        });
+                    }
+                },
+
+                buildCharts() {
+                    // destroy existing
+                    Object.values(this.charts).forEach(c => c.destroy());
+                    this.charts = {};
+
+                    const data = this.visibleSamples;
+                    const labels = data.map(s => s.time);
+                    const isDark = this.darkMode;
+                    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+                    const tickColor = isDark ? '#475569' : '#94a3b8';
+
+                    const baseOpts = (yLabel = '', yMax = null) => ({
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        animation: { duration: 600 },
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    color: isDark ? '#94a3b8' : '#64748b',
+                                    font: { family: 'JetBrains Mono', size: 11 },
+                                    usePointStyle: true,
+                                    pointStyle: 'rectRounded',
+                                    boxWidth: 20,
+                                    padding: 16,
+                                },
+                            },
+                            tooltip: {
+                                backgroundColor: isDark ? '#1e2130' : '#fff',
+                                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                                borderWidth: 1,
+                                titleColor: isDark ? '#94a3b8' : '#64748b',
+                                bodyColor: isDark ? '#e2e8f0' : '#1e293b',
+                                padding: 10,
+                                cornerRadius: 8,
+                                titleFont: { family: 'JetBrains Mono', size: 11 },
+                                bodyFont: { family: 'JetBrains Mono', size: 11 },
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: tickColor, font: { family: 'JetBrains Mono', size: 10 },
+                                    maxTicksLimit: 10, maxRotation: 0,
+                                },
+                                grid: { color: gridColor },
+                            },
+                            y: {
+                                ticks: { color: tickColor, font: { family: 'JetBrains Mono', size: 10 } },
+                                grid: { color: gridColor },
+                                ...(yMax ? { max: yMax } : {}),
+                                title: { display: !!yLabel, text: yLabel, color: tickColor, font: { size: 10 } },
+                            }
+                        }
+                    });
+
+                    const line = (color, label, data) => ({
+                        label, data,
+                        borderColor: color,
+                        backgroundColor: color + '18',
+                        borderWidth: 1.5,
+                        pointRadius: data.length > 60 ? 0 : 2,
+                        pointHoverRadius: 4,
+                        fill: false,
+                        tension: 0.4,
+                    });
+
+                    // CPU
+                    this.charts.cpu = new Chart(document.getElementById('cpuChart'), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                line('#60a5fa', 'usr', data.map(s => s.cpuUsr.toFixed(1))),
+                                line('#f472b6', 'sys', data.map(s => s.cpuSys.toFixed(1))),
+                                line('#fb923c', 'irq', data.map(s => s.cpuIrq.toFixed(1))),
+                                line('#475569', 'idle', data.map(s => s.cpuIdle.toFixed(1))),
+                            ]
+                        },
+                        options: { ...baseOpts('%', 100) }
+                    });
+
+                    // Memory
+                    this.charts.mem = new Chart(document.getElementById('memChart'), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                line('#a78bfa', 'used', data.map(s => (s.memUsed / 1024).toFixed(1))),
+                                line('#34d399', 'free', data.map(s => (s.memFree / 1024).toFixed(1))),
+                                line('#60a5fa', 'cache', data.map(s => (s.memCache / 1024).toFixed(1))),
+                                line('#f87171', 'swap', data.map(s => (s.memSwap / 1024).toFixed(1))),
+                            ]
+                        },
+                        options: { ...baseOpts('MB') }
+                    });
+
+                    // Disk
+                    this.charts.disk = new Chart(document.getElementById('diskChart'), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                line('#f59e0b', 'Read KB/s', data.map(s => s.diskRead.toFixed(0))),
+                                line('#ef4444', 'Write KB/s', data.map(s => s.diskWrite.toFixed(0))),
+                            ]
+                        },
+                        options: { ...baseOpts('KB/s') }
+                    });
+
+                    // Network
+                    this.charts.net = new Chart(document.getElementById('netChart'), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                line('#06b6d4', 'Recv KB/s', data.map(s => s.netRecv.toFixed(1))),
+                                line('#8b5cf6', 'Send KB/s', data.map(s => s.netSend.toFixed(1))),
+                            ]
+                        },
+                        options: { ...baseOpts('KB/s') }
+                    });
+
+                    // Load
+                    this.charts.load = new Chart(document.getElementById('loadChart'), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                line('#22c55e', 'Load 1m', data.map(s => s.load1.toFixed(2))),
+                                line('#84cc16', 'Load 5m', data.map(s => s.load5.toFixed(2))),
+                                line('#eab308', 'Load 15m', data.map(s => s.load15.toFixed(2))),
+                                {
+                                    label: 'Procs',
+                                    data: data.map(s => s.procs),
+                                    borderColor: '#f97316',
+                                    backgroundColor: 'transparent',
+                                    borderWidth: 1.5,
+                                    borderDash: [4, 3],
+                                    pointRadius: data.length > 60 ? 0 : 2,
+                                    pointHoverRadius: 4,
+                                    yAxisID: 'y2',
+                                    tension: 0.3,
+                                }
+                            ]
+                        },
+                        options: {
+                            ...baseOpts(),
+                            scales: {
+                                ...baseOpts().scales,
+                                y2: {
+                                    position: 'right',
+                                    ticks: { color: '#f97316', font: { family: 'JetBrains Mono', size: 10 } },
+                                    grid: { display: false },
+                                }
+                            }
+                        }
+                    });
+                },
+
+                refreshCharts() {
+                    if (this.parsedSamples.length) {
+                        this.$nextTick(() => this.buildCharts());
+                    }
+                },
+
+                resetAll() {
+                    Object.values(this.charts).forEach(c => c.destroy());
+                    this.charts = {};
+                    this.fileName = '';
+                    this.parsedSamples = [];
+                    this.showRaw = false;
+                    this.timeRange = 'all';
+                    this.timeFrom = '';
+                    this.timeTo = '';
+                },
+
+                exportExcel() {
+                    const rows = this.parsedSamples.map(s => ({
+                        'Time': s.time,
+                        'CPU User (%)': parseFloat(s.cpuUsr.toFixed(1)),
+                        'CPU System (%)': parseFloat(s.cpuSys.toFixed(1)),
+                        'CPU IRQ (%)': parseFloat(s.cpuIrq.toFixed(1)),
+                        'CPU Idle (%)': parseFloat(s.cpuIdle.toFixed(1)),
+                        'Mem Used (KB)': s.memUsed,
+                        'Mem Free (KB)': s.memFree,
+                        'Mem Cache (KB)': s.memCache,
+                        'Mem Swap (KB)': s.memSwap,
+                        'Disk Read (KB/s)': parseFloat(s.diskRead.toFixed(1)),
+                        'Disk Write (KB/s)': parseFloat(s.diskWrite.toFixed(1)),
+                        'Net Recv (KB/s)': parseFloat(s.netRecv.toFixed(1)),
+                        'Net Send (KB/s)': parseFloat(s.netSend.toFixed(1)),
+                        'Load 1m': parseFloat(s.load1.toFixed(2)),
+                        'Load 5m': parseFloat(s.load5.toFixed(2)),
+                        'Load 15m': parseFloat(s.load15.toFixed(2)),
+                        'Processes': s.procs,
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'ATOP Data');
+                    const exportName = this.fileName.replace(/\.[^.]+$/, '') + '.xlsx';
+                    XLSX.writeFile(wb, exportName);
+                    this.showToast('Exported ke ' + exportName);
+                },
+
+                showToast(msg) {
+                    this.toastMsg = msg;
+                    setTimeout(() => this.toastMsg = '', 3000);
+                }
+            };
+        }
+    </script>
+</body>
+
+</html>
