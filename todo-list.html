@@ -27,7 +27,8 @@
 <body
     class="bg-slate-50 dark:bg-slate-950 min-h-screen font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
 
-    <div x-cloak class="max-w-3xl mx-auto py-10 px-4">
+    <div x-cloak :class="viewMode === 'grid' ? 'max-w-full' : 'max-w-3xl'"
+        class="mx-auto py-10 px-4 transition-all duration-500">
 
         <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
@@ -36,6 +37,12 @@
             </div>
 
             <div class="flex items-center gap-3">
+                <button @click="viewMode = viewMode === 'list' ? 'grid' : 'list'"
+                    class="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-indigo-400 transition-all active:scale-95"
+                    :title="viewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View'">
+                    <span class="material-icons" x-text="viewMode === 'list' ? 'grid_view' : 'view_list'"></span>
+                </button>
+
                 <button @click="toggleDarkMode()"
                     class="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-amber-400 transition-all active:scale-95"
                     title="Toggle Dark Mode">
@@ -50,10 +57,10 @@
             </div>
         </header>
 
-        <div class="space-y-6">
+        <div :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-6'">
             <template x-for="(group, gIndex) in groups" :key="group.id">
                 <section
-                    class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden transition-all">
+                    class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden transition-all h-fit">
 
                     <div
                         class="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3">
@@ -107,9 +114,9 @@
                                     <input type="checkbox" x-model="todo.done"
                                         class="w-5 h-5 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
 
-                                    <input type="text" x-model="todo.text"
+                                    <textarea rows="2" x-model="todo.text"
                                         :class="todo.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'"
-                                        class="flex-grow bg-transparent border-none focus:ring-0 p-0 text-sm" />
+                                        class="flex-grow bg-transparent border-none focus:ring-0 p-0 text-sm"></textarea>
 
                                     <div
                                         class="flex items-center opacity-0 group-hover/item:opacity-100 transition-opacity">
@@ -171,6 +178,7 @@
             return {
                 groups: [],
                 darkMode: false,
+                viewMode: 'list',
 
                 init() {
                     // Load groups
@@ -181,9 +189,14 @@
                     const savedTheme = localStorage.getItem('todo_theme');
                     this.darkMode = savedTheme === 'dark';
 
+                    // Load view mode
+                    const savedView = localStorage.getItem('todo_view_mode');
+                    this.viewMode = savedView || 'list';
+
                     // Watchers
                     this.$watch('groups', val => localStorage.setItem('alpine_todo_data', JSON.stringify(val)), { deep: true });
                     this.$watch('darkMode', val => localStorage.setItem('todo_theme', val ? 'dark' : 'light'));
+                    this.$watch('viewMode', val => localStorage.setItem('todo_view_mode', val));
 
                     if (this.groups.length === 0) this.addGroup('My Project');
                 },
