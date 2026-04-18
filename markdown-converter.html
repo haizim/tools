@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="id" x-data="app()" :class="{ dark: darkMode }" class="h-full">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown Converter</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap"
+        rel="stylesheet" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    },
+                    colors: {
+                        ink: {
+                            50: '#f5f3f0',
+                            100: '#e8e4de',
+                            200: '#d0c9bf',
+                            300: '#b5a99a',
+                            400: '#9a8975',
+                            500: '#7d6e5a',
+                            600: '#655848',
+                            700: '#50453a',
+                            800: '#3b332c',
+                            900: '#2a241f',
+                            950: '#1a1612',
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+    <!-- marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- highlight.js for code highlighting in preview -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+        id="hljs-light" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+        id="hljs-dark" disabled />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- html2pdf.js for PDF export (handles large content, no canvas size limits) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- docx.js for Word export -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+
+    <!-- FileSaver.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        * {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        .font-display {
+            font-family: 'Syne', sans-serif;
+        }
+
+        code,
+        pre {
+            font-family: 'DM Mono', monospace;
+        }
+
+        body {
+            background: #f5f3f0;
+        }
+
+        .dark body,
+        .dark {
+            background: #1a1612;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #b5a99a;
+            border-radius: 3px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #50453a;
+        }
+
+        /* Textarea */
+        textarea:focus {
+            outline: none;
+        }
+
+        /* Editor pane decoration */
+        .editor-pane {
+            background: repeating-linear-gradient(transparent,
+                    transparent 27px,
+                    rgba(181, 169, 154, 0.15) 27px,
+                    rgba(181, 169, 154, 0.15) 28px);
+            background-size: 100% 28px;
+        }
+
+        .dark .editor-pane {
+            background: repeating-linear-gradient(transparent,
+                    transparent 27px,
+                    rgba(80, 69, 58, 0.25) 27px,
+                    rgba(80, 69, 58, 0.25) 28px);
+        }
+
+        /* Markdown Preview Styles */
+        .prose-preview h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 1.5rem 0 1rem;
+            border-bottom: 2px solid #d0c9bf;
+            padding-bottom: .5rem;
+        }
+
+        .prose-preview h2 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 1.25rem 0 .75rem;
+            border-bottom: 1px solid #e8e4de;
+            padding-bottom: .4rem;
+        }
+
+        .prose-preview h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 1rem 0 .5rem;
+        }
+
+        .prose-preview h4,
+        h5,
+        h6 {
+            font-family: 'Syne', sans-serif;
+            font-weight: 600;
+            margin: .75rem 0 .4rem;
+        }
+
+        .prose-preview p {
+            margin: .75rem 0;
+            line-height: 1.75;
+        }
+
+        .prose-preview ul {
+            list-style: disc;
+            padding-left: 1.5rem;
+            margin: .75rem 0;
+        }
+
+        .prose-preview ol {
+            list-style: decimal;
+            padding-left: 1.5rem;
+            margin: .75rem 0;
+        }
+
+        .prose-preview li {
+            margin: .3rem 0;
+            line-height: 1.7;
+        }
+
+        .prose-preview blockquote {
+            border-left: 3px solid #9a8975;
+            padding: .5rem 1rem;
+            margin: 1rem 0;
+            background: rgba(208, 201, 191, 0.2);
+            border-radius: 0 4px 4px 0;
+            font-style: italic;
+            color: #7d6e5a;
+        }
+
+        .prose-preview code {
+            font-family: 'DM Mono', monospace;
+            font-size: .875em;
+            background: #e8e4de;
+            padding: .15em .4em;
+            border-radius: 4px;
+        }
+
+        .prose-preview pre {
+            background: #2a241f;
+            color: #e8e4de;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .prose-preview pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font-size: .85rem;
+        }
+
+        .prose-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .prose-preview th {
+            background: #e8e4de;
+            font-weight: 600;
+            padding: .5rem .75rem;
+            border: 1px solid #d0c9bf;
+            text-align: left;
+        }
+
+        .prose-preview td {
+            padding: .5rem .75rem;
+            border: 1px solid #e8e4de;
+        }
+
+        .prose-preview tr:hover td {
+            background: rgba(208, 201, 191, 0.15);
+        }
+
+        .prose-preview a {
+            color: #7d6e5a;
+            text-decoration: underline;
+        }
+
+        .prose-preview a:hover {
+            color: #50453a;
+        }
+
+        .prose-preview hr {
+            border: none;
+            border-top: 2px solid #e8e4de;
+            margin: 1.5rem 0;
+        }
+
+        .prose-preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: .75rem 0;
+        }
+
+        .prose-preview strong {
+            font-weight: 600;
+        }
+
+        .prose-preview em {
+            font-style: italic;
+        }
+
+        /* Dark preview */
+        .dark .prose-preview h1 {
+            border-color: #50453a;
+        }
+
+        .dark .prose-preview h2 {
+            border-color: #3b332c;
+        }
+
+        .dark .prose-preview blockquote {
+            background: rgba(80, 69, 58, 0.25);
+            color: #9a8975;
+            border-color: #655848;
+        }
+
+        .dark .prose-preview code {
+            background: #3b332c;
+            color: #e8e4de;
+        }
+
+        .dark .prose-preview th {
+            background: #3b332c;
+            color: #e8e4de;
+            border-color: #50453a;
+        }
+
+        .dark .prose-preview td {
+            border-color: #3b332c;
+        }
+
+        .dark .prose-preview tr:hover td {
+            background: rgba(80, 69, 58, 0.2);
+        }
+
+        .dark .prose-preview a {
+            color: #b5a99a;
+        }
+
+        .dark .prose-preview hr {
+            border-color: #3b332c;
+        }
+
+        /* Toast */
+        .toast-enter {
+            animation: slideUp .3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Split handle */
+        .split-gutter {
+            cursor: col-resize;
+            user-select: none;
+        }
+
+        /* Tab indicator */
+        .tab-active::after {
+            content: '';
+            display: block;
+            height: 2px;
+            background: #7d6e5a;
+            border-radius: 1px;
+            margin-top: 2px;
+        }
+
+        /* Export button glow on hover */
+        .btn-export:hover {
+            box-shadow: 0 0 0 3px rgba(125, 110, 90, 0.2);
+        }
+
+        /* Word count badge */
+        .stat-badge {
+            font-family: 'DM Mono', monospace;
+            font-size: .7rem;
+            letter-spacing: .03em;
+        }
+
+        /* File drop overlay */
+        .drop-active {
+            outline: 2px dashed #9a8975;
+            outline-offset: -4px;
+        }
+    </style>
+</head>
+
+<body class="h-full bg-ink-50 dark:bg-ink-950 text-ink-800 dark:text-ink-200 transition-colors duration-300" x-cloak>
+
+    <!-- Toast -->
+    <div x-show="toast.show" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 toast-enter">
+        <div class="flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium" :class="toast.type === 'success'
+           ? 'bg-ink-800 dark:bg-ink-200 text-ink-50 dark:text-ink-900'
+           : 'bg-red-600 text-white'">
+            <span class="material-icons-round text-base"
+                x-text="toast.type === 'success' ? 'check_circle' : 'error'"></span>
+            <span x-text="toast.message"></span>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="flex flex-col h-screen overflow-hidden">
+
+        <!-- Header -->
+        <header
+            class="flex-shrink-0 flex items-center justify-between px-5 py-3 bg-ink-100 dark:bg-ink-900 border-b border-ink-200 dark:border-ink-800">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-ink-800 dark:bg-ink-200 flex items-center justify-center">
+                    <span class="material-icons-round text-ink-50 dark:text-ink-900 text-lg">description</span>
+                </div>
+                <div>
+                    <h1 class="font-display font-700 text-base leading-none text-ink-900 dark:text-ink-100">Markdown
+                        Converter</h1>
+                    <p class="text-xs text-ink-500 dark:text-ink-500 mt-0.5">Convert & Export Markdown</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- Stats -->
+                <div class="hidden sm:flex items-center gap-3 mr-2 text-ink-500 dark:text-ink-500">
+                    <span class="stat-badge" x-text="wordCount + ' kata'"></span>
+                    <span class="stat-badge opacity-50">·</span>
+                    <span class="stat-badge" x-text="charCount + ' karakter'"></span>
+                    <span class="stat-badge opacity-50">·</span>
+                    <span class="stat-badge" x-text="lineCount + ' baris'"></span>
+                </div>
+
+                <!-- Import button -->
+                <button @click="$refs.fileInput.click()"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-ink-200 dark:bg-ink-800 text-ink-700 dark:text-ink-300 hover:bg-ink-300 dark:hover:bg-ink-700 transition-colors">
+                    <span class="material-icons-round text-sm">upload_file</span>
+                    <span class="hidden sm:inline">Import</span>
+                </button>
+                <input type="file" x-ref="fileInput" class="hidden" accept=".md,.txt,.markdown"
+                    @change="importFile($event)" />
+
+                <!-- Clear -->
+                <button @click="clearContent()"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-ink-500 dark:text-ink-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                    title="Hapus semua">
+                    <span class="material-icons-round text-sm">delete_outline</span>
+                </button>
+
+                <!-- Dark mode -->
+                <button @click="toggleDark()"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-ink-200 dark:hover:bg-ink-800 transition-colors">
+                    <span class="material-icons-round text-base" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- View mode tabs (mobile) -->
+        <div
+            class="flex-shrink-0 flex sm:hidden border-b border-ink-200 dark:border-ink-800 bg-ink-100 dark:bg-ink-900">
+            <button @click="mobileView = 'editor'"
+                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors"
+                :class="mobileView === 'editor' ? 'text-ink-800 dark:text-ink-200 tab-active' : 'text-ink-500 dark:text-ink-500'">
+                <span class="material-icons-round text-sm">edit_note</span> Editor
+            </button>
+            <button @click="mobileView = 'preview'"
+                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors"
+                :class="mobileView === 'preview' ? 'text-ink-800 dark:text-ink-200 tab-active' : 'text-ink-500 dark:text-ink-500'">
+                <span class="material-icons-round text-sm">visibility</span> Preview
+            </button>
+            <button @click="mobileView = 'export'"
+                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors"
+                :class="mobileView === 'export' ? 'text-ink-800 dark:text-ink-200 tab-active' : 'text-ink-500 dark:text-ink-500'">
+                <span class="material-icons-round text-sm">download</span> Export
+            </button>
+        </div>
+
+        <!-- Workspace -->
+        <div class="flex-1 flex overflow-hidden">
+
+            <!-- EDITOR PANE -->
+            <div class="flex flex-col overflow-hidden transition-all" :class="{
+             'hidden': mobileView !== 'editor' && !isDesktop(),
+             'flex w-full sm:flex sm:w-1/2': true
+           }" style="min-width:0" @dragover.prevent="dragActive = true" @dragleave="dragActive = false"
+                @drop.prevent="handleDrop($event)" :class="dragActive ? 'drop-active' : ''">
+
+                <!-- Editor header -->
+                <div
+                    class="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-ink-50 dark:bg-ink-950 border-b border-ink-200 dark:border-ink-800">
+                    <div class="flex items-center gap-2 text-xs font-medium text-ink-500 dark:text-ink-500">
+                        <span class="material-icons-round text-sm">edit_note</span>
+                        <span>Editor Markdown</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="loadSample()"
+                            class="text-xs text-ink-400 dark:text-ink-600 hover:text-ink-600 dark:hover:text-ink-400 transition-colors flex items-center gap-1">
+                            <span class="material-icons-round text-sm">auto_awesome</span>
+                            <span class="hidden sm:inline">Sample</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Drop hint -->
+                <div x-show="dragActive"
+                    class="absolute inset-0 z-20 flex items-center justify-center bg-ink-50/90 dark:bg-ink-950/90">
+                    <div class="text-center">
+                        <span class="material-icons-round text-5xl text-ink-400 dark:text-ink-600">upload_file</span>
+                        <p class="mt-2 font-display font-600 text-ink-600 dark:text-ink-400">Drop file .md di sini</p>
+                    </div>
+                </div>
+
+                <!-- Textarea -->
+                <div class="flex-1 overflow-hidden">
+                    <textarea x-model="markdown" @input="onInput()"
+                        class="editor-pane w-full h-full resize-none p-4 text-sm font-mono leading-7 bg-transparent text-ink-800 dark:text-ink-200 placeholder-ink-400 dark:placeholder-ink-600 focus:outline-none"
+                        placeholder="Ketik atau tempel Markdown di sini...&#10;&#10;Atau drag & drop file .md, klik Import, atau gunakan Sample."
+                        spellcheck="false">
+          </textarea>
+                </div>
+            </div>
+
+            <!-- Divider desktop -->
+            <div
+                class="hidden sm:flex flex-col items-center justify-center w-1 flex-shrink-0 bg-ink-200 dark:bg-ink-800 relative split-gutter">
+                <div
+                    class="absolute inset-y-0 -left-1 -right-1 hover:bg-ink-300 dark:hover:bg-ink-700 transition-colors opacity-0 hover:opacity-100">
+                </div>
+            </div>
+
+            <!-- PREVIEW PANE -->
+            <div class="hidden sm:flex flex-col flex-1 overflow-hidden min-w-0"
+                :class="{ 'flex !flex-col': mobileView === 'preview' && !isDesktop() }">
+
+                <!-- Preview header -->
+                <div
+                    class="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-ink-50 dark:bg-ink-950 border-b border-ink-200 dark:border-ink-800">
+                    <div class="flex items-center gap-2 text-xs font-medium text-ink-500 dark:text-ink-500">
+                        <span class="material-icons-round text-sm">visibility</span>
+                        <span>Preview</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                        <span class="text-xs text-ink-400 dark:text-ink-600">Live</span>
+                    </div>
+                </div>
+
+                <!-- Preview content -->
+                <div class="flex-1 overflow-y-auto">
+                    <div id="preview-content"
+                        class="prose-preview px-6 py-5 text-sm text-ink-800 dark:text-ink-200 max-w-none"
+                        x-html="renderedHtml">
+                    </div>
+                    <!-- Empty state -->
+                    <div x-show="!markdown.trim()"
+                        class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="text-center opacity-40">
+                            <span class="material-icons-round text-5xl text-ink-400 dark:text-ink-600">article</span>
+                            <p class="mt-2 text-sm text-ink-500 dark:text-ink-500">Preview akan muncul di sini</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MOBILE PREVIEW TAB -->
+            <div x-show="mobileView === 'preview' && !isDesktop()"
+                class="flex flex-col flex-1 overflow-hidden sm:hidden">
+                <div
+                    class="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-ink-50 dark:bg-ink-950 border-b border-ink-200 dark:border-ink-800">
+                    <div class="flex items-center gap-2 text-xs font-medium text-ink-500">
+                        <span class="material-icons-round text-sm">visibility</span> Preview
+                    </div>
+                    <span class="flex items-center gap-1 text-xs text-green-500"><span
+                            class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span> Live</span>
+                </div>
+                <div class="flex-1 overflow-y-auto">
+                    <div class="prose-preview px-5 py-4 text-sm text-ink-800 dark:text-ink-200" x-html="renderedHtml">
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXPORT PANEL (mobile tab + desktop sidebar) -->
+            <!-- Desktop: bottom strip; Mobile: full tab -->
+        </div>
+
+        <!-- EXPORT BAR -->
+        <div class="flex-shrink-0 bg-ink-100 dark:bg-ink-900 border-t border-ink-200 dark:border-ink-800 px-4 py-3"
+            :class="{ 'hidden': mobileView !== 'export' && !isDesktop() && window.innerWidth < 640 }">
+
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+
+                <div class="flex items-center gap-2 mr-2">
+                    <span class="material-icons-round text-ink-500 text-base">ios_share</span>
+                    <span
+                        class="text-xs font-display font-600 text-ink-600 dark:text-ink-400 uppercase tracking-widest">Export</span>
+                </div>
+
+                <!-- Filename -->
+                <div
+                    class="flex-1 flex items-center gap-2 bg-ink-50 dark:bg-ink-950 border border-ink-200 dark:border-ink-800 rounded-lg px-3 py-1.5">
+                    <span class="material-icons-round text-ink-400 text-sm">text_fields</span>
+                    <input type="text" x-model="filename"
+                        class="flex-1 bg-transparent text-sm text-ink-700 dark:text-ink-300 placeholder-ink-400 focus:outline-none font-mono"
+                        placeholder="nama-file" />
+                </div>
+
+                <!-- Format selector + export buttons -->
+                <div class="flex flex-wrap gap-2">
+
+                    <!-- HTML -->
+                    <button @click="exportAs('html')" :disabled="!markdown.trim()" x-data="{ hover: false }" class="btn-export group flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                   bg-ink-800 dark:bg-ink-200 text-ink-50 dark:text-ink-900
+                   hover:bg-ink-700 dark:hover:bg-ink-300
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span class="material-icons-round text-sm group-disabled:opacity-50">html</span>
+                        HTML
+                    </button>
+
+                    <!-- PDF -->
+                    <button @click="exportAs('pdf')" :disabled="!markdown.trim() || exporting" class="btn-export group flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                   bg-amber-500 text-white hover:bg-amber-600
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span x-show="!exporting" class="material-icons-round text-sm">picture_as_pdf</span>
+                        <span x-show="exporting" class="material-icons-round text-sm animate-spin">autorenew</span>
+                        <span x-text="exporting ? 'Memproses...' : 'PDF'"></span>
+                    </button>
+
+                    <!-- Word -->
+                    <button @click="exportAs('docx')" :disabled="!markdown.trim()" class="btn-export group flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                   bg-blue-600 text-white hover:bg-blue-700
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span class="material-icons-round text-sm">article</span>
+                        Word
+                    </button>
+
+                    <!-- Markdown -->
+                    <button @click="exportAs('md')" :disabled="!markdown.trim()" class="btn-export group flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                   bg-ink-200 dark:bg-ink-800 text-ink-700 dark:text-ink-300
+                   hover:bg-ink-300 dark:hover:bg-ink-700
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span class="material-icons-round text-sm">save_alt</span>
+                        .md
+                    </button>
+
+                    <!-- Plain Text -->
+                    <button @click="exportAs('txt')" :disabled="!markdown.trim()" class="btn-export group flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                   bg-ink-200 dark:bg-ink-800 text-ink-700 dark:text-ink-300
+                   hover:bg-ink-300 dark:hover:bg-ink-700
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span class="material-icons-round text-sm">text_snippet</span>
+                        TXT
+                    </button>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Mobile Export Tab Full -->
+        <div x-show="mobileView === 'export' && !isDesktop()"
+            class="sm:hidden flex-1 flex flex-col overflow-y-auto bg-ink-50 dark:bg-ink-950 p-5 gap-4">
+            <div>
+                <label
+                    class="block text-xs font-semibold text-ink-500 dark:text-ink-500 uppercase tracking-widest mb-1.5">Nama
+                    File</label>
+                <div
+                    class="flex items-center gap-2 bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl px-3 py-2.5">
+                    <span class="material-icons-round text-ink-400 text-sm">text_fields</span>
+                    <input type="text" x-model="filename"
+                        class="flex-1 bg-transparent text-sm text-ink-700 dark:text-ink-300 placeholder-ink-400 focus:outline-none font-mono"
+                        placeholder="nama-file" />
+                </div>
+            </div>
+            <div>
+                <label
+                    class="block text-xs font-semibold text-ink-500 dark:text-ink-500 uppercase tracking-widest mb-2">Format</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button @click="exportAs('html')" :disabled="!markdown.trim()"
+                        class="btn-export flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-ink-800 dark:bg-ink-200 text-white dark:text-ink-900 disabled:opacity-40">
+                        <span class="material-icons-round">html</span> HTML
+                    </button>
+                    <button @click="exportAs('pdf')" :disabled="!markdown.trim() || exporting"
+                        class="btn-export flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-amber-500 text-white disabled:opacity-40">
+                        <span class="material-icons-round" x-text="exporting ? 'autorenew' : 'picture_as_pdf'"></span>
+                        <span x-text="exporting ? 'Proses...' : 'PDF'"></span>
+                    </button>
+                    <button @click="exportAs('docx')" :disabled="!markdown.trim()"
+                        class="btn-export flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-blue-600 text-white disabled:opacity-40">
+                        <span class="material-icons-round">article</span> Word
+                    </button>
+                    <button @click="exportAs('md')" :disabled="!markdown.trim()"
+                        class="btn-export flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-ink-200 dark:bg-ink-800 text-ink-700 dark:text-ink-300 disabled:opacity-40">
+                        <span class="material-icons-round">save_alt</span> .md
+                    </button>
+                    <button @click="exportAs('txt')" :disabled="!markdown.trim()"
+                        class="btn-export col-span-2 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-ink-200 dark:bg-ink-800 text-ink-700 dark:text-ink-300 disabled:opacity-40">
+                        <span class="material-icons-round">text_snippet</span> Plain Text (.txt)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /main layout -->
+
+
+    <script>
+        function app() {
+            return {
+                darkMode: localStorage.getItem('md_dark') === '1' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+                markdown: '',
+                renderedHtml: '',
+                filename: 'document',
+                mobileView: 'editor',
+                exporting: false,
+                dragActive: false,
+                toast: { show: false, message: '', type: 'success' },
+                _toastTimer: null,
+
+                get wordCount() {
+                    const text = this.markdown.replace(/[#*`_~\[\]()>!-]/g, '').trim();
+                    return text ? text.split(/\s+/).length : 0;
+                },
+                get charCount() { return this.markdown.length; },
+                get lineCount() { return this.markdown ? this.markdown.split('\n').length : 0; },
+
+                init() {
+                    // Restore last session
+                    const saved = localStorage.getItem('md_content');
+                    if (saved) this.markdown = saved;
+
+                    // Configure marked
+                    marked.setOptions({
+                        highlight: function (code, lang) {
+                            if (lang && hljs.getLanguage(lang)) {
+                                return hljs.highlight(code, { language: lang }).value;
+                            }
+                            return hljs.highlightAuto(code).value;
+                        },
+                        breaks: true,
+                        gfm: true
+                    });
+
+                    this.renderMarkdown();
+                    this.syncHljsTheme();
+                },
+
+                toggleDark() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('md_dark', this.darkMode ? '1' : '0');
+                    this.syncHljsTheme();
+                },
+
+                syncHljsTheme() {
+                    document.getElementById('hljs-light').disabled = this.darkMode;
+                    document.getElementById('hljs-dark').disabled = !this.darkMode;
+                },
+
+                onInput() {
+                    this.renderMarkdown();
+                    localStorage.setItem('md_content', this.markdown);
+                },
+
+                renderMarkdown() {
+                    if (!this.markdown.trim()) { this.renderedHtml = ''; return; }
+                    this.renderedHtml = marked.parse(this.markdown);
+                    this.$nextTick(() => {
+                        document.querySelectorAll('.prose-preview pre code').forEach(el => {
+                            if (!el.dataset.highlighted) hljs.highlightElement(el);
+                        });
+                    });
+                },
+
+                clearContent() {
+                    if (this.markdown && !confirm('Hapus semua konten?')) return;
+                    this.markdown = '';
+                    this.renderedHtml = '';
+                    localStorage.removeItem('md_content');
+                    this.showToast('Konten dihapus', 'success');
+                },
+
+                importFile(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.markdown = e.target.result;
+                        this.filename = file.name.replace(/\.(md|txt|markdown)$/i, '');
+                        this.renderMarkdown();
+                        this.showToast('File berhasil diimpor', 'success');
+                    };
+                    reader.readAsText(file);
+                    event.target.value = '';
+                },
+
+                handleDrop(event) {
+                    this.dragActive = false;
+                    const file = event.dataTransfer.files[0];
+                    if (!file) return;
+                    if (!/\.(md|txt|markdown)$/i.test(file.name)) {
+                        this.showToast('Hanya file .md/.txt yang didukung', 'error'); return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.markdown = e.target.result;
+                        this.filename = file.name.replace(/\.(md|txt|markdown)$/i, '');
+                        this.renderMarkdown();
+                        this.showToast('File berhasil diimpor', 'success');
+                    };
+                    reader.readAsText(file);
+                },
+
+                loadSample() {
+                    this.markdown = `# Selamat Datang di Markdown Converter
+
+## Tentang Aplikasi
+
+**Markdown Converter** adalah alat sederhana untuk mengonversi teks Markdown ke berbagai format file.
+
+---
+
+## Fitur Utama
+
+- ✅ Preview Markdown secara *real-time*
+- ✅ Export ke **HTML**, **PDF**, **Word (.docx)**, dan plain text
+- ✅ Import file \`.md\` dari komputer
+- ✅ Drag & drop file
+- ✅ Dark mode otomatis
+- ✅ Menyimpan sesi terakhir
+
+---
+
+## Contoh Format
+
+### Kode
+
+\`\`\`javascript
+function hello(name) {
+  console.log(\`Halo, \${name}!\`);
+}
+hello('Dunia');
+\`\`\`
+
+### Tabel
+
+| Format | Ekstensi | Keterangan |
+|--------|----------|------------|
+| HTML   | .html    | Halaman web |
+| PDF    | .pdf     | Dokumen cetak |
+| Word   | .docx    | Microsoft Word |
+| Text   | .txt     | Teks polos |
+
+### Kutipan
+
+> "Markdown adalah cara termudah untuk menulis konten yang terstruktur dan mudah dibaca."
+
+---
+
+## Cara Penggunaan
+
+1. Tulis atau tempel Markdown di **panel kiri**
+2. Lihat preview di **panel kanan**
+3. Pilih format ekspor di bagian bawah
+4. Klik tombol export yang diinginkan
+
+---
+
+*Dibuat dengan ❤️ menggunakan Alpine.js + Tailwind CSS*
+`;
+                    this.filename = 'sample-document';
+                    this.renderMarkdown();
+                    this.showToast('Sample dimuat', 'success');
+                },
+
+                async exportAs(format) {
+                    if (!this.markdown.trim()) return;
+                    const fname = (this.filename.trim() || 'document');
+
+                    if (format === 'md') {
+                        const blob = new Blob([this.markdown], { type: 'text/markdown;charset=utf-8' });
+                        saveAs(blob, fname + '.md');
+                        this.showToast('File .md berhasil diunduh', 'success');
+                    }
+
+                    else if (format === 'txt') {
+                        // Strip markdown syntax for plain text
+                        const plain = this.markdown
+                            .replace(/#{1,6}\s+/g, '')
+                            .replace(/\*\*(.+?)\*\*/g, '$1')
+                            .replace(/\*(.+?)\*/g, '$1')
+                            .replace(/__(.+?)__/g, '$1')
+                            .replace(/_(.+?)_/g, '$1')
+                            .replace(/~~(.+?)~~/g, '$1')
+                            .replace(/`{3}[\s\S]*?`{3}/g, '')
+                            .replace(/`(.+?)`/g, '$1')
+                            .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+                            .replace(/!\[.+?\]\(.+?\)/g, '')
+                            .replace(/^>\s+/gm, '')
+                            .replace(/^[-*+]\s+/gm, '• ')
+                            .replace(/^\d+\.\s+/gm, '')
+                            .replace(/^[-_*]{3,}\s*$/gm, '—'.repeat(30))
+                            .trim();
+                        const blob = new Blob([plain], { type: 'text/plain;charset=utf-8' });
+                        saveAs(blob, fname + '.txt');
+                        this.showToast('File .txt berhasil diunduh', 'success');
+                    }
+
+                    else if (format === 'html') {
+                        const html = this.buildHTMLDocument();
+                        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+                        saveAs(blob, fname + '.html');
+                        this.showToast('File HTML berhasil diunduh', 'success');
+                    }
+
+                    else if (format === 'pdf') {
+                        this.exporting = true;
+                        await this.$nextTick();
+                        try {
+                            const htmlDoc = this.buildHTMLDocument(true);
+
+                            // Open in new window and trigger print-to-PDF
+                            const win = window.open('', '_blank', 'width=900,height=700');
+                            if (!win) {
+                                this.showToast('Izinkan popup untuk export PDF', 'error');
+                                this.exporting = false;
+                                return;
+                            }
+
+                            win.document.open();
+                            win.document.write(htmlDoc);
+                            win.document.close();
+
+                            // Wait for fonts & layout to render, then print
+                            win.onload = () => {
+                                setTimeout(() => {
+                                    win.focus();
+                                    win.print();
+                                    // Close after print dialog is dismissed
+                                    win.onafterprint = () => win.close();
+                                    // Fallback close
+                                    setTimeout(() => { try { win.close(); } catch (e) { } }, 30000);
+                                }, 800);
+                            };
+
+                            this.showToast('Dialog print terbuka — pilih "Save as PDF"', 'success');
+                        } catch (e) {
+                            console.error(e);
+                            this.showToast('Gagal membuat PDF: ' + e.message, 'error');
+                        }
+                        this.exporting = false;
+                    }
+
+                    else if (format === 'docx') {
+                        try {
+                            const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+
+                            // Parse markdown lines to docx paragraphs
+                            const lines = this.markdown.split('\n');
+                            const paragraphs = [];
+
+                            for (let i = 0; i < lines.length; i++) {
+                                const line = lines[i];
+
+                                // Headings
+                                if (/^######\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({ text: line.replace(/^######\s/, ''), heading: HeadingLevel.HEADING_6 }));
+                                } else if (/^#####\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({ text: line.replace(/^#####\s/, ''), heading: HeadingLevel.HEADING_5 }));
+                                } else if (/^####\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({ text: line.replace(/^####\s/, ''), heading: HeadingLevel.HEADING_4 }));
+                                } else if (/^###\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({ text: line.replace(/^###\s/, ''), heading: HeadingLevel.HEADING_3 }));
+                                } else if (/^##\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({ text: line.replace(/^##\s/, ''), heading: HeadingLevel.HEADING_2 }));
+                                } else if (/^#\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({ text: line.replace(/^#\s/, ''), heading: HeadingLevel.HEADING_1 }));
+                                }
+                                // Horizontal rule
+                                else if (/^---+$|^\*\*\*+$|^___+$/.test(line.trim())) {
+                                    paragraphs.push(new Paragraph({ text: '─'.repeat(50) }));
+                                }
+                                // List
+                                else if (/^[-*+]\s/.test(line)) {
+                                    const text = line.replace(/^[-*+]\s/, '• ').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+                                    paragraphs.push(new Paragraph({ text }));
+                                }
+                                // Numbered list
+                                else if (/^\d+\.\s/.test(line)) {
+                                    const text = line.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+                                    paragraphs.push(new Paragraph({ text }));
+                                }
+                                // Blockquote
+                                else if (/^>\s/.test(line)) {
+                                    paragraphs.push(new Paragraph({
+                                        text: line.replace(/^>\s/, ''),
+                                        indent: { left: 720 }
+                                    }));
+                                }
+                                // Code block start/end
+                                else if (/^```/.test(line)) {
+                                    // Skip code fence lines
+                                }
+                                // Regular paragraph with inline formatting
+                                else if (line.trim()) {
+                                    const text = line
+                                        .replace(/\*\*(.+?)\*\*/g, '$1')
+                                        .replace(/\*(.+?)\*/g, '$1')
+                                        .replace(/__(.+?)__/g, '$1')
+                                        .replace(/_(.+?)_/g, '$1')
+                                        .replace(/~~(.+?)~~/g, '$1')
+                                        .replace(/`(.+?)`/g, '$1')
+                                        .replace(/\[(.+?)\]\(.+?\)/g, '$1');
+                                    paragraphs.push(new Paragraph({ text }));
+                                } else {
+                                    paragraphs.push(new Paragraph({ text: '' }));
+                                }
+                            }
+
+                            const doc = new Document({
+                                sections: [{
+                                    properties: {},
+                                    children: paragraphs
+                                }]
+                            });
+
+                            const buffer = await Packer.toBlob(doc);
+                            saveAs(buffer, fname + '.docx');
+                            this.showToast('File Word berhasil diunduh', 'success');
+                        } catch (e) {
+                            console.error(e);
+                            this.showToast('Gagal membuat Word', 'error');
+                        }
+                    }
+                },
+
+                buildHTMLDocument(forPdf = false) {
+                    const isDark = forPdf ? false : this.darkMode;
+                    return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${this.filename || 'Document'}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+  <style>
+    @page { size: A4; margin: 25mm 20mm; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', Georgia, serif;
+      font-size: 13pt;
+      line-height: 1.75;
+      background: ${isDark ? '#1a1612' : '#ffffff'};
+      color: ${isDark ? '#d0c9bf' : '#2a2a2a'};
+      ${forPdf ? 'padding: 20mm; max-width: 210mm; margin: 0 auto;' : 'padding: 3rem 1.5rem; max-width: 800px; margin: 0 auto;'}
+    }
+    h1,h2,h3,h4,h5,h6 {
+      font-family: 'Syne', Georgia, serif;
+      font-weight: 700;
+      margin: 1.4rem 0 .6rem;
+      page-break-after: avoid;
+      color: ${isDark ? '#f0ebe4' : '#1a1a1a'};
+    }
+    h1 { font-size: 22pt; border-bottom: 2px solid ${isDark ? '#50453a' : '#cccccc'}; padding-bottom: .4rem; }
+    h2 { font-size: 17pt; border-bottom: 1px solid ${isDark ? '#3b332c' : '#e0e0e0'}; padding-bottom: .3rem; }
+    h3 { font-size: 14pt; }
+    h4,h5,h6 { font-size: 12pt; }
+    p { margin: .65rem 0; orphans: 3; widows: 3; }
+    ul,ol { padding-left: 1.6rem; margin: .65rem 0; }
+    li { margin: .25rem 0; }
+    blockquote {
+      border-left: 3px solid #999;
+      padding: .4rem .9rem;
+      margin: .9rem 0;
+      color: #666;
+      font-style: italic;
+      background: ${isDark ? 'rgba(80,69,58,.2)' : '#f7f7f7'};
+    }
+    code {
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 10pt;
+      background: ${isDark ? '#3b332c' : '#f0f0f0'};
+      padding: .1em .35em;
+      border-radius: 3px;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: .9rem 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: .9rem 0;
+      page-break-inside: avoid;
+    }
+    pre code { background: transparent; color: inherit; font-size: 9.5pt; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: .9rem 0; page-break-inside: avoid; font-size: 11pt; }
+    th { background: ${isDark ? '#3b332c' : '#eeeeee'}; font-weight: 600; padding: .4rem .65rem; border: 1px solid ${isDark ? '#50453a' : '#cccccc'}; text-align: left; }
+    td { padding: .4rem .65rem; border: 1px solid ${isDark ? '#3b332c' : '#dddddd'}; }
+    a { color: #6b5c46; text-decoration: underline; }
+    hr { border: none; border-top: 1.5px solid ${isDark ? '#3b332c' : '#dddddd'}; margin: 1.3rem 0; }
+    img { max-width: 100%; border-radius: 4px; page-break-inside: avoid; }
+    strong { font-weight: 600; }
+    em { font-style: italic; }
+    ${forPdf ? `
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      pre, blockquote, table, figure { page-break-inside: avoid; }
+      h1,h2,h3 { page-break-after: avoid; }
+    }` : ''}
+  </style>
+</head>
+<body>
+${marked.parse(this.markdown)}
+</body>
+</html>`;
+                },
+
+                showToast(message, type = 'success') {
+                    clearTimeout(this._toastTimer);
+                    this.toast = { show: true, message, type };
+                    this._toastTimer = setTimeout(() => { this.toast.show = false; }, 2800);
+                },
+
+                isDesktop() {
+                    return window.innerWidth >= 640;
+                }
+            }
+        }
+    </script>
+
+</body>
+
+</html>
