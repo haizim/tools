@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="id" x-data="chatApp()" x-bind:class="{ 'dark': darkMode }" class="transition-colors duration-300">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Animation Simulator</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .font-display {
+            font-family: 'Syne', sans-serif;
+        }
+
+        .font-mono {
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 99px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+
+        /* Chat bubble tails */
+        .bubble-left::before {
+            content: '';
+            position: absolute;
+            left: -7px;
+            bottom: 8px;
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-right-width: 8px;
+            border-right-style: solid;
+        }
+
+        .bubble-right::after {
+            content: '';
+            position: absolute;
+            right: -7px;
+            bottom: 8px;
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left-width: 8px;
+            border-left-style: solid;
+        }
+
+        /* Animations Keyframes */
+        @keyframes slideInLeft {
+            0% {
+                opacity: 0;
+                transform: translateX(-24px) scale(0.95);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes slideInRight {
+            0% {
+                opacity: 0;
+                transform: translateX(24px) scale(0.95);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+
+            70% {
+                transform: scale(1.08);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes fadeUp {
+            0% {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes typewriter {
+            0% {
+                opacity: 0;
+                transform: translateX(-8px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3) translateY(20px);
+            }
+
+            50% {
+                transform: scale(1.1) translateY(-4px);
+            }
+
+            80% {
+                transform: scale(0.97);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+            }
+        }
+
+        @keyframes typing {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Animations */
+        .anim-none {
+            animation: none !important;
+            opacity: 1 !important;
+        }
+
+        .anim-slide-left {
+            animation: slideInLeft .5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .anim-slide-right {
+            animation: slideInRight .5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .anim-pop {
+            animation: popIn .5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .anim-fade-up {
+            animation: fadeUp .5s ease forwards;
+        }
+
+        .anim-bounce {
+            animation: bounceIn .5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Typing dots */
+        .typing-dot:nth-child(1) {
+            animation: typing 1s ease 0s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation: typing 1s ease 0.2s infinite;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation: typing 1s ease 0.4s infinite;
+        }
+
+        /* Status bar */
+        .phone-status {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        /* Sidebar panel */
+        .panel-section {
+            border-bottom: 1px solid;
+        }
+
+        .dark .panel-section {
+            border-color: #1e293b;
+        }
+
+        .panel-section {
+            border-color: #e2e8f0;
+        }
+
+        /* Input focus */
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+        }
+
+        /* Smooth transitions */
+        .chat-msg {
+            opacity: 0;
+        }
+
+        .chat-msg.visible {
+            opacity: 1;
+        }
+
+        /* Theme color vars */
+        .theme-whatsapp {
+            --bubble-out: #dcf8c6;
+            --bubble-in: #ffffff;
+            --header: #075e54;
+            --bg: #e5ddd5;
+        }
+
+        .theme-telegram {
+            --bubble-out: #effdde;
+            --bubble-in: #ffffff;
+            --header: #2b5278;
+            --bg: #c9d8e8;
+        }
+
+        .theme-imessage {
+            --bubble-out: #007aff;
+            --bubble-in: #e9e9eb;
+            --header: #f2f2f7;
+            --bg: #f2f2f7;
+        }
+
+        .theme-material {
+            --bubble-out: #6200ee;
+            --bubble-in: #f5f5f5;
+            --header: #6200ee;
+            --bg: #fafafa;
+        }
+
+        .theme-dark-pro {
+            --bubble-out: #5865f2;
+            --bubble-in: #2f3136;
+            --header: #1e1f22;
+            --bg: #313338;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 dark:bg-slate-950 min-h-screen transition-colors duration-300">
+
+
+    <!-- App Shell -->
+    <div class="flex flex-col h-screen overflow-hidden">
+
+        <!-- Top Bar -->
+        <header
+            class="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-20">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                    <span class="material-icons-round text-white text-[16px]">forum</span>
+                </div>
+                <div>
+                    <h1 class="font-display font-700 text-base text-slate-900 dark:text-white leading-none"
+                        style="font-weight:700">Chat Simulator</h1>
+                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-mono leading-none mt-0.5">Animation
+                        Studio</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- Mode Toggle -->
+                <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
+                    <button @click="appMode='edit'"
+                        :class="appMode==='edit' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 dark:text-slate-500'"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-display font-600 transition-all"
+                        style="font-weight:600">
+                        <span class="material-icons-round text-[14px]">edit</span> Edit
+                    </button>
+                    <button @click="appMode='simulate'"
+                        :class="appMode==='simulate' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 dark:text-slate-500'"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-display font-600 transition-all"
+                        style="font-weight:600">
+                        <span class="material-icons-round text-[14px]">play_arrow</span> Simulate
+                    </button>
+                </div>
+                <!-- Panel Toggles -->
+                <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
+                    <button @click="showLeftPanel = !showLeftPanel"
+                        :class="showLeftPanel ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 dark:text-slate-500'"
+                        class="flex items-center justify-center w-8 h-8 rounded-md transition-all"
+                        title="Konfigurasi Tampilan">
+                        <span class="material-icons-round text-[18px]">tune</span>
+                    </button>
+                    <button @click="showRightPanel = !showRightPanel"
+                        :class="showRightPanel ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 dark:text-slate-500'"
+                        class="flex items-center justify-center w-8 h-8 rounded-md transition-all" title="Editor Pesan">
+                        <span class="material-icons-round text-[18px]">edit_note</span>
+                    </button>
+                </div>
+                <!-- Dark Mode -->
+                <button @click="darkMode=!darkMode"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <span class="material-icons-round text-[18px]"
+                        x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="flex flex-1 overflow-hidden">
+
+            <!-- LEFT PANEL: Settings -->
+            <aside x-show="showLeftPanel" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
+                x-transition:leave="transition ease-in duration-300" x-transition:leave-start="translate-x-0"
+                x-transition:leave-end="-translate-x-full"
+                class="w-72 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 overflow-y-auto flex flex-col">
+
+                <!-- Device & Type -->
+                <div class="p-4 panel-section">
+                    <p class="text-[10px] font-display font-700 text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3"
+                        style="font-weight:700">Tampilan</p>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <button @click="device='desktop'"
+                            :class="device==='desktop' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'"
+                            class="flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 text-xs font-medium transition-all hover:border-indigo-400">
+                            <span class="material-icons-round text-[20px]">computer</span>
+                            Desktop
+                        </button>
+                        <button @click="device='mobile'"
+                            :class="device==='mobile' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'"
+                            class="flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 text-xs font-medium transition-all hover:border-indigo-400">
+                            <span class="material-icons-round text-[20px]">smartphone</span>
+                            Mobile
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button @click="chatType='direct'"
+                            :class="chatType==='direct' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'"
+                            class="flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 text-xs font-medium transition-all hover:border-purple-400">
+                            <span class="material-icons-round text-[20px]">person</span>
+                            Direct
+                        </button>
+                        <button @click="chatType='group'"
+                            :class="chatType==='group' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'"
+                            class="flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 text-xs font-medium transition-all hover:border-purple-400">
+                            <span class="material-icons-round text-[20px]">group</span>
+                            Grup
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Theme -->
+                <div class="p-4 panel-section">
+                    <p class="text-[10px] font-display font-700 text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3"
+                        style="font-weight:700">Tema Chat</p>
+                    <div class="grid grid-cols-5 gap-1.5">
+                        <template x-for="t in themes" :key="t.id">
+                            <button @click="selectedTheme=t.id" :title="t.name" :style="`background: ${t.preview}`"
+                                :class="selectedTheme===t.id ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : 'hover:scale-105'"
+                                class="w-full aspect-square rounded-lg transition-all duration-150 ring-offset-white dark:ring-offset-slate-900">
+                            </button>
+                        </template>
+                    </div>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2 font-mono"
+                        x-text="themes.find(t=>t.id===selectedTheme)?.name"></p>
+                </div>
+
+                <!-- Animation -->
+                <div class="p-4 panel-section">
+                    <p class="text-[10px] font-display font-700 text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3"
+                        style="font-weight:700">Animasi</p>
+                    <div class="space-y-1.5 mb-3">
+                        <template x-for="anim in animations" :key="anim.id">
+                            <button @click="selectedAnim=anim.id"
+                                :class="selectedAnim===anim.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all hover:border-indigo-400">
+                                <span class="material-icons-round text-[16px]" x-text="anim.icon"></span>
+                                <span x-text="anim.name"></span>
+                                <span x-show="selectedAnim===anim.id"
+                                    class="ml-auto material-icons-round text-[14px] text-indigo-500">check_circle</span>
+                            </button>
+                        </template>
+                    </div>
+                    <label class="flex items-center justify-between cursor-pointer group px-1">
+                        <span
+                            class="text-[11px] font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Animasi
+                            sedang mengetik...</span>
+                        <div class="relative">
+                            <input type="checkbox" x-model="enableTypingAnim" class="sr-only">
+                            <div class="block bg-slate-200 dark:bg-slate-700 w-8 h-4 rounded-full transition-colors"
+                                :class="enableTypingAnim ? 'bg-indigo-500 dark:bg-indigo-500' : ''"></div>
+                            <div class="dot absolute left-0.5 top-0.5 bg-white w-3 h-3 rounded-full transition-transform"
+                                :class="enableTypingAnim ? 'translate-x-4 shadow-sm' : 'translate-x-0 shadow-sm'"></div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Chat Config -->
+                <div class="p-4 panel-section">
+                    <p class="text-[10px] font-display font-700 text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3"
+                        style="font-weight:700">Info Chat</p>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 dark:text-slate-500 font-mono block mb-1">Nama
+                                Kontak/Grup</label>
+                            <input x-model="chatName" type="text"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                                placeholder="Nama..." />
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 dark:text-slate-500 font-mono block mb-1">Nama Kamu
+                                (pengirim)</label>
+                            <input x-model="myName" type="text"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                                placeholder="Nama kamu..." />
+                        </div>
+                        <template x-if="chatType==='group'">
+                            <div>
+                                <label
+                                    class="text-[10px] text-slate-400 dark:text-slate-500 font-mono block mb-1">Member
+                                    Grup (pisah koma)</label>
+                                <input x-model="groupMembersRaw" type="text"
+                                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                                    placeholder="Ali, Budi, Citra..." />
+                            </div>
+                        </template>
+                        <div>
+                            <label class="text-[10px] text-slate-400 dark:text-slate-500 font-mono block mb-1">Delay
+                                antar pesan (ms)</label>
+                            <input x-model.number="animDelay" type="number" min="200" max="3000" step="100"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="p-4 mt-auto">
+                    <button @click="resetAll()"
+                        class="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                        <span class="material-icons-round text-[16px]">delete_sweep</span>
+                        Reset Semua
+                    </button>
+                </div>
+            </aside>
+
+            <!-- CENTER: Preview -->
+            <main
+                class="flex-1 flex flex-col items-center justify-start overflow-auto bg-slate-100 dark:bg-slate-950 p-4 gap-3 min-h-0">
+
+                <!-- Device Frame -->
+                <div class="w-full flex justify-center flex-1 min-h-0"
+                    :class="isResizing ? ('select-none ' + (_resizeDir==='bottom' ? 'cursor-ns-resize' : 'cursor-ew-resize')) : ''"
+                    @mousemove.window="onResizeMove($event)" @mouseup.window="isResizing=false">
+                    <!-- Desktop Frame -->
+                    <template x-if="device==='desktop'">
+                        <div class="relative flex"
+                            :style="`width:${desktopWidth ? desktopWidth+'px' : '100%'}; height:${desktopHeight ? desktopHeight+'px' : '100%'}`">
+                            <div class="absolute -left-3 inset-y-0 w-6 flex items-center justify-center cursor-ew-resize z-10 group"
+                                @mousedown.prevent="startResize($event, 'desktop', 'left')">
+                                <div
+                                    class="w-1 h-16 rounded-full bg-slate-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 group-hover:bg-indigo-400 transition-all">
+                                </div>
+                            </div>
+                            <div class="w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-300 dark:border-slate-700 flex flex-col h-full"
+                                :class="getTheme().bgClass">
+                                <!-- Desktop Header -->
+                                <div class="flex items-center gap-3 px-4 py-3"
+                                    :style="`background:${getTheme().header}`">
+                                    <div class="flex gap-1.5">
+                                        <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                                        <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                                        <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-1">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-display font-700 text-sm"
+                                            :style="`background: ${getTheme().avatarBg}`" style="font-weight:700"
+                                            x-text="(chatName||'C').charAt(0).toUpperCase()"></div>
+                                        <div>
+                                            <p class="text-white text-sm font-display font-600 leading-none"
+                                                style="font-weight:600" x-text="chatName || 'Kontak'"></p>
+                                            <p class="text-white/60 text-[10px] leading-none mt-0.5"
+                                                x-text="chatType==='group' ? `${groupMembers.length+1} anggota` : 'Online'">
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-3">
+                                        <span class="material-icons-round text-white/70 text-[18px]">videocam</span>
+                                        <span class="material-icons-round text-white/70 text-[18px]">call</span>
+                                        <span class="material-icons-round text-white/70 text-[18px]">more_vert</span>
+                                    </div>
+                                </div>
+                                <!-- Chat Body -->
+                                <div id="chat-preview" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2"
+                                    :style="`background:${getTheme().bg}`" x-ref="chatBody">
+                                    <template x-for="(msg, idx) in visibleMessages" :key="msg.id">
+                                        <div :class="getBubbleWrapper(msg)" x-show="true">
+                                            <template x-if="chatType==='group' && !msg.isMe">
+                                                <p class="text-[10px] font-display font-600 mb-0.5 px-1"
+                                                    :style="`color:${getMemberColor(msg.sender)}`"
+                                                    style="font-weight:600" x-text="msg.sender"></p>
+                                            </template>
+                                            <div :id="`bubble-${msg.id}`" :class="getBubbleClass(msg)"
+                                                :style="getBubbleStyle(msg)">
+                                                <p class="text-sm leading-snug" x-text="msg.text"></p>
+                                                <div class="flex items-center justify-end gap-1 mt-1">
+                                                    <span class="text-[10px] opacity-60 font-mono"
+                                                        x-text="msg.time"></span>
+                                                    <template x-if="msg.isMe">
+                                                        <span class="material-icons-round text-[12px]"
+                                                            :class="msg.read ? 'text-blue-400' : 'opacity-50'"
+                                                            x-text="msg.read ? 'done_all' : 'done'"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <!-- Typing indicator -->
+                                    <div x-show="showTyping" x-transition class="flex items-end gap-2">
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-display font-700"
+                                            :style="`background: ${getTheme().avatarBg}`" style="font-weight:700"
+                                            x-text="(chatName||'C').charAt(0).toUpperCase()"></div>
+                                        <div class="rounded-2xl rounded-bl-sm px-3 py-2.5 flex gap-1 items-center"
+                                            :style="`background:${getTheme().bubbleIn}`">
+                                            <span class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                            <span class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                            <span class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="absolute -right-3 inset-y-0 w-6 flex items-center justify-center cursor-ew-resize z-10 group"
+                                @mousedown.prevent="startResize($event, 'desktop', 'right')">
+                                <div
+                                    class="w-1 h-16 rounded-full bg-slate-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 group-hover:bg-indigo-400 transition-all">
+                                </div>
+                            </div>
+                            <div class="absolute left-0 right-0 -bottom-3 h-6 flex items-center justify-center cursor-ns-resize z-10 group"
+                                @mousedown.prevent="startResize($event, 'desktop', 'bottom')">
+                                <div
+                                    class="h-1 w-16 rounded-full bg-slate-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 group-hover:bg-indigo-400 transition-all">
+                                </div>
+                            </div>
+                            <div x-show="isResizing && _resizeTarget==='desktop'"
+                                class="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-md z-20 font-mono pointer-events-none"
+                                x-text="_resizeDir==='bottom' ? `${desktopHeight}px ↕` : `${desktopWidth}px ↔`"></div>
+                        </div>
+                    </template>
+
+                    <!-- Mobile Frame -->
+                    <template x-if="device==='mobile'">
+                        <div class="relative flex" :style="`width:${mobileWidth}px; height:${mobileHeight}px`">
+                            <div class="absolute -left-3 inset-y-0 w-6 flex items-center justify-center cursor-ew-resize z-10 group"
+                                @mousedown.prevent="startResize($event, 'mobile', 'left')">
+                                <div
+                                    class="w-1 h-16 rounded-full bg-slate-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 group-hover:bg-indigo-400 transition-all">
+                                </div>
+                            </div>
+                            <div class="w-full h-full rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-800 dark:border-slate-700 relative flex flex-col"
+                                style="box-shadow: 0 0 0 6px #1e293b, 0 24px 48px rgba(0,0,0,0.4)">
+                                <!-- Notch -->
+                                <div
+                                    class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-slate-900 dark:bg-slate-900 rounded-b-2xl z-10 flex items-center justify-center">
+                                    <div class="w-12 h-1 bg-slate-700 rounded-full"></div>
+                                </div>
+                                <!-- Status Bar -->
+                                <div class="flex items-center justify-between px-5 pt-8 pb-1.5"
+                                    :style="`background:${getTheme().header}`">
+                                    <span class="phone-status text-white">9:41</span>
+                                    <div class="flex items-center gap-1">
+                                        <span
+                                            class="material-icons-round text-white text-[14px]">signal_cellular_alt</span>
+                                        <span class="material-icons-round text-white text-[14px]">wifi</span>
+                                        <span class="material-icons-round text-white text-[14px]">battery_full</span>
+                                    </div>
+                                </div>
+                                <!-- Mobile Header -->
+                                <div class="flex items-center gap-2 px-3 py-2.5"
+                                    :style="`background:${getTheme().header}`">
+                                    <span class="material-icons-round text-white text-[18px]">arrow_back</span>
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-display font-700 text-sm"
+                                        :style="`background: ${getTheme().avatarBg}`" style="font-weight:700"
+                                        x-text="(chatName||'C').charAt(0).toUpperCase()"></div>
+                                    <div class="flex-1">
+                                        <p class="text-white text-sm font-display font-600 leading-none"
+                                            style="font-weight:600" x-text="chatName || 'Kontak'"></p>
+                                        <p class="text-white/60 text-[9px] leading-none mt-0.5"
+                                            x-text="chatType==='group' ? `${groupMembers.length+1} anggota` : 'Online'">
+                                        </p>
+                                    </div>
+                                    <span class="material-icons-round text-white text-[18px]">videocam</span>
+                                    <span class="material-icons-round text-white text-[18px]">more_vert</span>
+                                </div>
+                                <!-- Chat Body Mobile -->
+                                <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-1.5"
+                                    :style="`background:${getTheme().bg}`" x-ref="chatBodyMobile">
+                                    <template x-for="(msg, idx) in visibleMessages" :key="msg.id">
+                                        <div :class="getBubbleWrapper(msg)">
+                                            <template x-if="chatType==='group' && !msg.isMe">
+                                                <p class="text-[9px] font-display font-600 mb-0.5 px-1"
+                                                    :style="`color:${getMemberColor(msg.sender)}`"
+                                                    style="font-weight:600" x-text="msg.sender"></p>
+                                            </template>
+                                            <div :id="`mbubble-${msg.id}`" :class="getBubbleClass(msg)"
+                                                :style="getBubbleStyle(msg)">
+                                                <p class="text-xs leading-snug" x-text="msg.text"></p>
+                                                <div class="flex items-center justify-end gap-0.5 mt-0.5">
+                                                    <span class="text-[9px] opacity-60 font-mono"
+                                                        x-text="msg.time"></span>
+                                                    <template x-if="msg.isMe">
+                                                        <span class="material-icons-round text-[10px]"
+                                                            :class="msg.read ? 'text-blue-400' : 'opacity-50'"
+                                                            x-text="msg.read ? 'done_all' : 'done'"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <!-- Typing mobile -->
+                                    <div x-show="showTyping" x-transition class="flex items-end gap-1.5">
+                                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-display font-700"
+                                            :style="`background: ${getTheme().avatarBg}`" style="font-weight:700"
+                                            x-text="(chatName||'C').charAt(0).toUpperCase()"></div>
+                                        <div class="rounded-2xl rounded-bl-sm px-2.5 py-2 flex gap-1 items-center"
+                                            :style="`background:${getTheme().bubbleIn}`">
+                                            <span class="typing-dot w-1 h-1 rounded-full bg-slate-400"></span>
+                                            <span class="typing-dot w-1 h-1 rounded-full bg-slate-400"></span>
+                                            <span class="typing-dot w-1 h-1 rounded-full bg-slate-400"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Mobile bottom bar -->
+                                <div class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800">
+                                    <span
+                                        class="material-icons-round text-slate-400 text-[20px]">sentiment_satisfied</span>
+                                    <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full px-3 py-1.5">
+                                        <p class="text-[11px] text-slate-400">Pesan...</p>
+                                    </div>
+                                    <span class="material-icons-round text-slate-400 text-[20px]">attach_file</span>
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center"
+                                        :style="`background:${getTheme().header}`">
+                                        <span class="material-icons-round text-white text-[16px]">mic</span>
+                                    </div>
+                                </div>
+                                <!-- Home indicator -->
+                                <div class="bg-white dark:bg-slate-800 pb-2 flex justify-center">
+                                    <div class="w-20 h-1 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div class="absolute -right-3 inset-y-0 w-6 flex items-center justify-center cursor-ew-resize z-10 group"
+                                @mousedown.prevent="startResize($event, 'mobile', 'right')">
+                                <div
+                                    class="w-1 h-16 rounded-full bg-slate-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 group-hover:bg-indigo-400 transition-all">
+                                </div>
+                            </div>
+                            <div class="absolute left-0 right-0 -bottom-3 h-6 flex items-center justify-center cursor-ns-resize z-10 group"
+                                @mousedown.prevent="startResize($event, 'mobile', 'bottom')">
+                                <div
+                                    class="h-1 w-16 rounded-full bg-slate-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 group-hover:bg-indigo-400 transition-all">
+                                </div>
+                            </div>
+                            <div x-show="isResizing && _resizeTarget==='mobile'"
+                                class="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-md z-20 font-mono pointer-events-none"
+                                x-text="_resizeDir==='bottom' ? `${mobileHeight}px ↕` : `${mobileWidth}px ↔`"></div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Simulate Controls -->
+                <template x-if="appMode==='simulate'">
+                    <div class="flex flex-col items-center gap-3 w-full max-w-xl">
+                        <!-- Progress -->
+                        <div class="w-full flex items-center gap-3">
+                            <span class="text-xs font-mono text-slate-400 dark:text-slate-500"
+                                x-text="`${simulateIndex}/${messages.length}`"></span>
+                            <div class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+                                    :style="`width: ${messages.length ? (simulateIndex/messages.length)*100 : 0}%`">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Nav Buttons -->
+                        <div class="flex items-center gap-2">
+                            <button @click="resetSimulate()"
+                                class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+                                <span class="material-icons-round text-[16px]">replay</span> Reset
+                            </button>
+                            <button @click="prevMessage()" :disabled="simulateIndex===0"
+                                class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="material-icons-round text-[16px]">arrow_back</span> Prev
+                            </button>
+                            <button @click="nextMessage()" :disabled="simulateIndex>=messages.length"
+                                class="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-indigo-200 dark:shadow-none">
+                                Next <span class="material-icons-round text-[16px]">arrow_forward</span>
+                            </button>
+                            <button @click="autoPlay()"
+                                :class="isAutoPlaying ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'"
+                                class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium transition-colors">
+                                <span class="material-icons-round text-[16px]"
+                                    x-text="isAutoPlaying ? 'pause' : 'play_arrow'"></span>
+                                <span x-text="isAutoPlaying ? 'Pause' : 'Auto'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+            </main>
+
+            <!-- RIGHT PANEL: Message Editor -->
+            <aside x-show="showRightPanel" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+                x-transition:leave="transition ease-in duration-300" x-transition:leave-start="translate-x-0"
+                x-transition:leave-end="translate-x-full"
+                class="w-72 shrink-0 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+
+                <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <p class="text-[10px] font-display font-700 text-slate-400 dark:text-slate-500 uppercase tracking-widest"
+                        style="font-weight:700">Daftar Pesan</p>
+                    <span
+                        class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300"
+                        x-text="`${messages.length} pesan`"></span>
+                </div>
+
+                <!-- Message List -->
+                <div class="flex-1 overflow-y-auto p-3 space-y-1.5">
+                    <template x-for="(msg, idx) in messages" :key="msg.id">
+                        <div class="group flex items-start gap-2 p-2.5 rounded-xl"
+                            :class="editingId===msg.id ? 'bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent'">
+                            <div class="shrink-0 mt-0.5">
+                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-display font-700"
+                                    :style="`background: ${msg.isMe ? '#6366f1' : getTheme().avatarBg}`"
+                                    style="font-weight:700" x-text="(msg.sender||'?').charAt(0).toUpperCase()"></div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1.5 mb-0.5">
+                                    <span class="text-[10px] font-display font-600 truncate"
+                                        :class="msg.isMe ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'"
+                                        style="font-weight:600"
+                                        x-text="msg.isMe ? (myName||'Kamu') : msg.sender"></span>
+                                    <span class="text-[9px] font-mono text-slate-400 dark:text-slate-600"
+                                        x-text="msg.time"></span>
+                                </div>
+                                <p class="text-xs text-slate-700 dark:text-slate-300 truncate" x-text="msg.text"></p>
+                            </div>
+                            <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button @click="editMessage(msg)"
+                                    class="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-950 transition-colors">
+                                    <span class="material-icons-round text-[13px]">edit</span>
+                                </button>
+                                <button @click="deleteMessage(msg.id)"
+                                    class="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-950 transition-colors">
+                                    <span class="material-icons-round text-[13px]">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="messages.length===0"
+                        class="flex flex-col items-center justify-center py-8 text-center">
+                        <span
+                            class="material-icons-round text-3xl text-slate-300 dark:text-slate-700 mb-2">chat_bubble_outline</span>
+                        <p class="text-xs text-slate-400 dark:text-slate-600">Belum ada pesan.<br>Tambah pesan di bawah.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Add/Edit Message Form -->
+                <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <p class="text-[10px] font-display font-700 text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3"
+                        style="font-weight:700" x-text="editingId ? 'Edit Pesan' : 'Tambah Pesan'"></p>
+
+                    <!-- Sender Toggle -->
+                    <div class="flex gap-2 mb-2.5">
+                        <button @click="newMsg.isMe=true"
+                            :class="newMsg.isMe ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400' : 'border-slate-200 dark:border-slate-700 text-slate-500'"
+                            class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-xs font-medium transition-all">
+                            <span class="material-icons-round text-[14px]">person</span>
+                            <span x-text="myName || 'Kamu'"></span>
+                        </button>
+                        <button @click="newMsg.isMe=false"
+                            :class="!newMsg.isMe ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400' : 'border-slate-200 dark:border-slate-700 text-slate-500'"
+                            class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-xs font-medium transition-all">
+                            <span class="material-icons-round text-[14px]">groups</span>
+                            Lawan
+                        </button>
+                    </div>
+
+                    <!-- Sender name if group & not me -->
+                    <template x-if="chatType==='group' && !newMsg.isMe">
+                        <div class="mb-2">
+                            <select x-model="newMsg.sender"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200">
+                                <template x-for="m in groupMembers" :key="m">
+                                    <option :value="m" x-text="m"></option>
+                                </template>
+                                <option value="" x-show="groupMembers.length===0">Tambah member dulu</option>
+                            </select>
+                        </div>
+                    </template>
+                    <template x-if="chatType==='direct' && !newMsg.isMe">
+                        <div class="mb-2">
+                            <input x-model="newMsg.sender" type="text" :placeholder="chatName || 'Nama pengirim'"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400" />
+                        </div>
+                    </template>
+
+                    <!-- Text -->
+                    <textarea x-model="newMsg.text" rows="2" placeholder="Tulis pesan..."
+                        class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 resize-none mb-2"
+                        @keydown.enter.ctrl="saveMessage()"></textarea>
+
+                    <!-- Time & Read -->
+                    <div class="flex gap-2 mb-2.5">
+                        <input x-model="newMsg.time" type="text" placeholder="12:00"
+                            class="w-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-800 dark:text-slate-200 font-mono" />
+                        <label
+                            class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
+                            <input x-model="newMsg.read" type="checkbox" class="rounded" />
+                            Read
+                        </label>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <template x-if="editingId">
+                            <button @click="cancelEdit()"
+                                class="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                Batal
+                            </button>
+                        </template>
+                        <button @click="saveMessage()" :disabled="!newMsg.text.trim()"
+                            class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-medium hover:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            <span class="material-icons-round text-[14px]" x-text="editingId ? 'save' : 'add'"></span>
+                            <span x-text="editingId ? 'Simpan' : 'Tambah'"></span>
+                        </button>
+                    </div>
+                    <p class="text-[9px] text-slate-400 dark:text-slate-600 mt-1.5 text-center font-mono">Ctrl+Enter
+                        untuk simpan cepat</p>
+                </div>
+            </aside>
+
+        </div>
+    </div>
+
+    <script>
+        function chatApp() {
+            return {
+                darkMode: false,
+                appMode: 'edit', // 'edit' | 'simulate'
+                device: 'mobile',
+                chatType: 'direct',
+                chatName: 'Rina',
+                myName: 'Aku',
+                groupMembersRaw: 'Rina, Budi, Citra',
+                animDelay: 800,
+                selectedTheme: 'whatsapp',
+                selectedAnim: 'slide',
+                messages: [],
+                visibleMessages: [],
+                simulateIndex: 0,
+                isAutoPlaying: false,
+                autoTimer: null,
+                showTyping: false,
+                enableTypingAnim: true,
+                editingId: null,
+                showLeftPanel: true,
+                showRightPanel: true,
+                newMsg: { text: '', isMe: true, sender: '', time: '', read: false },
+                desktopWidth: null,
+                desktopHeight: null,
+                mobileWidth: 288,
+                mobileHeight: 512,
+                isResizing: false,
+                _resizeTarget: null,
+                _resizeDir: null,
+                _resizeStartX: 0,
+                _resizeStartY: 0,
+                _resizeStartW: 0,
+                _resizeStartH: 0,
+
+                themes: [
+                    { id: 'whatsapp', name: 'WhatsApp', preview: '#25d366', header: '#075e54', bg: '#e5ddd5', bubbleOut: '#dcf8c6', bubbleIn: '#ffffff', avatarBg: '#128c7e' },
+                    { id: 'telegram', name: 'Telegram', preview: '#2ca5e0', header: '#2b5278', bg: '#c9d8e8', bubbleOut: '#effdde', bubbleIn: '#ffffff', avatarBg: '#2ca5e0' },
+                    { id: 'imessage', name: 'iMessage', preview: '#007aff', header: '#f2f2f7', bg: '#f2f2f7', bubbleOut: '#007aff', bubbleIn: '#e9e9eb', avatarBg: '#007aff' },
+                    { id: 'material', name: 'Material', preview: '#6200ee', header: '#6200ee', bg: '#fafafa', bubbleOut: '#6200ee', bubbleIn: '#ede7f6', avatarBg: '#6200ee' },
+                    { id: 'dark-pro', name: 'Dark Pro', preview: '#5865f2', header: '#1e1f22', bg: '#313338', bubbleOut: '#5865f2', bubbleIn: '#2f3136', avatarBg: '#5865f2' },
+                    { id: 'sunset', name: 'Sunset', preview: '#ff6b6b', header: '#c62a2a', bg: '#fff3f3', bubbleOut: '#ff6b6b', bubbleIn: '#ffffff', avatarBg: '#ff4757' },
+                    { id: 'forest', name: 'Forest', preview: '#2d6a4f', header: '#2d6a4f', bg: '#d8f3dc', bubbleOut: '#40916c', bubbleIn: '#ffffff', avatarBg: '#1b4332' },
+                    { id: 'slate', name: 'Slate', preview: '#64748b', header: '#1e293b', bg: '#f1f5f9', bubbleOut: '#334155', bubbleIn: '#ffffff', avatarBg: '#475569' },
+                    { id: 'rose', name: 'Rose', preview: '#f43f5e', header: '#be123c', bg: '#fff1f2', bubbleOut: '#f43f5e', bubbleIn: '#fff', avatarBg: '#e11d48' },
+                    { id: 'amber', name: 'Amber', preview: '#f59e0b', header: '#92400e', bg: '#fffbeb', bubbleOut: '#f59e0b', bubbleIn: '#ffffff', avatarBg: '#b45309' },
+                ],
+
+                animations: [
+                    { id: 'slide', name: 'Slide In', icon: 'swipe_right' },
+                    { id: 'pop', name: 'Pop', icon: 'radio_button_checked' },
+                    { id: 'fade', name: 'Fade Up', icon: 'arrow_upward' },
+                    { id: 'bounce', name: 'Bounce', icon: 'expand_less' },
+                    { id: 'none', name: 'Tanpa Animasi', icon: 'block' },
+                ],
+
+                memberColors: ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c', '#e67e22'],
+
+                get groupMembers() {
+                    if (!this.groupMembersRaw.trim()) return [];
+                    return this.groupMembersRaw.split(',').map(s => s.trim()).filter(Boolean);
+                },
+
+                getTheme() {
+                    return this.themes.find(t => t.id === this.selectedTheme) || this.themes[0];
+                },
+
+                getMemberColor(name) {
+                    const all = this.groupMembers;
+                    const idx = all.indexOf(name);
+                    return this.memberColors[idx % this.memberColors.length] || '#888';
+                },
+
+                getBubbleWrapper(msg) {
+                    return msg.isMe
+                        ? 'flex flex-col items-end'
+                        : 'flex flex-col items-start' + (this.chatType === 'group' ? ' pl-0' : '');
+                },
+
+                getBubbleClass(msg) {
+                    const base = 'chat-msg relative px-3 py-2 rounded-2xl max-w-[80%] shadow-sm ';
+                    const side = msg.isMe ? 'rounded-br-sm' : 'rounded-bl-sm';
+
+                    // Always show visible if not in simulate mode or if no animation selected
+                    if (this.appMode !== 'simulate' || this.selectedAnim === 'none' || !msg.appearing) {
+                        return `${base} ${side} visible`;
+                    }
+
+                    return `${base} ${side} ${this.getAnimClass(msg)}`;
+                },
+
+                getBubbleStyle(msg) {
+                    const theme = this.getTheme();
+                    if (msg.isMe) {
+                        const isLight = this.selectedTheme === 'imessage';
+                        return `background:${theme.bubbleOut}; color: ${isLight ? '#fff' : (this.selectedTheme === 'dark-pro' ? '#fff' : this.selectedTheme === 'material' ? '#fff' : '#2d2d2d')}`;
+                    }
+                    const isDark = this.selectedTheme === 'dark-pro';
+                    return `background:${theme.bubbleIn}; color: ${isDark ? '#dbdee1' : '#2d2d2d'}`;
+                },
+
+                getAnimClass(msg) {
+                    if (this.selectedAnim === 'none') return '';
+                    if (this.selectedAnim === 'pop') return 'anim-pop';
+                    if (this.selectedAnim === 'fade') return 'anim-fade-up';
+                    if (this.selectedAnim === 'bounce') return 'anim-bounce';
+                    // slide
+                    return msg.isMe ? 'anim-slide-right' : 'anim-slide-left';
+                },
+
+                generateTime() {
+                    const now = new Date();
+                    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                },
+
+                saveMessage() {
+                    if (!this.newMsg.text.trim()) return;
+                    const time = this.newMsg.time || this.generateTime();
+                    const sender = this.newMsg.isMe
+                        ? (this.myName || 'Aku')
+                        : (this.newMsg.sender || this.chatName || 'Lawan');
+
+                    if (this.editingId) {
+                        const idx = this.messages.findIndex(m => m.id === this.editingId);
+                        if (idx !== -1) {
+                            this.messages[idx] = { ...this.messages[idx], text: this.newMsg.text, isMe: this.newMsg.isMe, sender, time, read: this.newMsg.read };
+                        }
+                        this.editingId = null;
+                    } else {
+                        this.messages.push({
+                            id: Date.now(),
+                            text: this.newMsg.text,
+                            isMe: this.newMsg.isMe,
+                            sender,
+                            time,
+                            read: this.newMsg.read,
+                        });
+                    }
+                    this.newMsg = { text: '', isMe: this.newMsg.isMe, sender: this.newMsg.sender, time: '', read: false };
+                    if (this.appMode === 'edit') {
+                        this.visibleMessages = [...this.messages];
+                        this.scrollToBottom();
+                    }
+                },
+
+                editMessage(msg) {
+                    this.editingId = msg.id;
+                    this.newMsg = { text: msg.text, isMe: msg.isMe, sender: msg.sender, time: msg.time, read: msg.read };
+                },
+
+                cancelEdit() {
+                    this.editingId = null;
+                    this.newMsg = { text: '', isMe: true, sender: '', time: '', read: false };
+                },
+
+                deleteMessage(id) {
+                    this.messages = this.messages.filter(m => m.id !== id);
+                    this.visibleMessages = this.visibleMessages.filter(m => m.id !== id);
+                },
+
+                resetAll() {
+                    this.messages = [];
+                    this.visibleMessages = [];
+                    this.simulateIndex = 0;
+                    this.stopAutoPlay();
+                },
+
+                resetSimulate() {
+                    this.visibleMessages = [];
+                    this.simulateIndex = 0;
+                    this.showTyping = false;
+                    this.stopAutoPlay();
+                },
+
+                nextMessage() {
+                    if (this.simulateIndex >= this.messages.length) return;
+                    const msg = this.messages[this.simulateIndex];
+                    // show typing briefly if incoming
+                    if (!msg.isMe && this.selectedAnim !== 'none' && this.enableTypingAnim) {
+                        this.showTyping = true;
+                        setTimeout(() => {
+                            this.showTyping = false;
+                            this.addVisibleMessage(msg);
+                            this.simulateIndex++;
+                        }, 600);
+                    } else {
+                        this.addVisibleMessage(msg);
+                        this.simulateIndex++;
+                    }
+                },
+
+                addVisibleMessage(msg) {
+                    this.visibleMessages.push({ ...msg, appearing: true });
+                    this.scrollToBottom();
+                },
+
+                prevMessage() {
+                    if (this.simulateIndex === 0) return;
+                    this.simulateIndex--;
+                    this.visibleMessages = this.messages.slice(0, this.simulateIndex).map(m => ({ ...m }));
+                    this.scrollToBottom();
+                },
+
+                autoPlay() {
+                    if (this.isAutoPlaying) {
+                        this.stopAutoPlay();
+                        return;
+                    }
+                    this.isAutoPlaying = true;
+                    const step = () => {
+                        if (this.simulateIndex >= this.messages.length) {
+                            this.stopAutoPlay();
+                            return;
+                        }
+                        this.nextMessage();
+                        this.autoTimer = setTimeout(step, this.animDelay + 700);
+                    };
+                    this.autoTimer = setTimeout(step, 300);
+                },
+
+                stopAutoPlay() {
+                    this.isAutoPlaying = false;
+                    if (this.autoTimer) { clearTimeout(this.autoTimer); this.autoTimer = null; }
+                },
+
+                startResize(e, target, dir) {
+                    const el = e.currentTarget.parentElement;
+                    this._resizeStartX = e.clientX;
+                    this._resizeStartY = e.clientY;
+                    this._resizeStartW = target === 'desktop' ? (this.desktopWidth || el.offsetWidth) : this.mobileWidth;
+                    this._resizeStartH = target === 'desktop' ? (this.desktopHeight || el.offsetHeight) : this.mobileHeight;
+                    this._resizeTarget = target;
+                    this._resizeDir = dir;
+                    this.isResizing = true;
+                },
+
+                onResizeMove(e) {
+                    if (!this.isResizing) return;
+                    if (this._resizeDir === 'bottom') {
+                        const dy = e.clientY - this._resizeStartY;
+                        if (this._resizeTarget === 'desktop') {
+                            this.desktopHeight = Math.max(200, this._resizeStartH + dy);
+                        } else {
+                            this.mobileHeight = Math.max(300, Math.min(900, this._resizeStartH + dy));
+                        }
+                    } else {
+                        const dx = e.clientX - this._resizeStartX;
+                        const delta = this._resizeDir === 'left' ? -dx : dx;
+                        if (this._resizeTarget === 'desktop') {
+                            this.desktopWidth = Math.max(320, this._resizeStartW + delta);
+                        } else {
+                            this.mobileWidth = Math.max(200, Math.min(600, this._resizeStartW + delta));
+                        }
+                    }
+                },
+
+                scrollToBottom() {
+                    this.$nextTick(() => {
+                        const b = this.$refs.chatBody;
+                        const bm = this.$refs.chatBodyMobile;
+                        if (b) b.scrollTop = b.scrollHeight;
+                        if (bm) bm.scrollTop = bm.scrollHeight;
+                    });
+                },
+
+                init() {
+                    // Watch mode change
+                    this.$watch('appMode', (val) => {
+                        if (val === 'edit') {
+                            this.visibleMessages = [...this.messages];
+                            this.stopAutoPlay();
+                            this.scrollToBottom();
+                        } else {
+                            this.visibleMessages = [];
+                            this.simulateIndex = 0;
+                        }
+                    });
+                    // Default messages
+                    this.messages = [
+                        { id: 1, text: 'Hei, lagi ngapain?', isMe: false, sender: 'Rina', time: '09:10', read: true },
+                        { id: 2, text: 'Lagi santai aja. Ada apa?', isMe: true, sender: 'Aku', time: '09:11', read: true },
+                        { id: 3, text: 'Nanti sore makan bareng yuk!', isMe: false, sender: 'Rina', time: '09:12', read: false },
+                        { id: 4, text: 'Boleh banget, jam berapa?', isMe: true, sender: 'Aku', time: '09:12', read: false },
+                        { id: 5, text: 'Jam 6 gimana? Di tempat biasa aja', isMe: false, sender: 'Rina', time: '09:13', read: false },
+                    ];
+                    this.visibleMessages = [...this.messages];
+                    this.scrollToBottom();
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
