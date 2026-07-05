@@ -424,9 +424,18 @@
                         </div>
                         <div class="flex justify-between py-2 text-sm text-gray-600 dark:text-gray-400"
                             x-show="form.withTax">
-                            <span>PPh 21 (2.5%)</span>
+                            <span class="flex items-center gap-1">
+                                <input type="text" x-model="form.taxName"
+                                    class="no-print w-20 border-0 border-b border-gray-300 dark:border-gray-600 focus:ring-0 bg-transparent text-gray-600 dark:text-gray-400 text-sm p-0">
+                                <span class="hidden print:inline" x-text="form.taxName"></span>
+                                <span class="no-print text-gray-400">(</span>
+                                <input type="number" x-model="form.taxRate" min="0" max="100" step="0.1"
+                                    class="no-print w-12 border-0 border-b border-gray-300 dark:border-gray-600 focus:ring-0 bg-transparent text-gray-600 dark:text-gray-400 text-sm p-0 text-right">
+                                <span class="no-print text-gray-400">%)</span>
+                                <span class="hidden print:inline" x-text="'(' + form.taxRate + '%)'"></span>
+                            </span>
                             <span class="font-medium text-gray-900 dark:text-gray-100"
-                                x-text="formatCurrency(pph21)"></span>
+                                x-text="formatCurrency(taxAmount)"></span>
                         </div>
                         <div
                             class="flex justify-between py-4 text-xl font-bold text-blue-600 border-t-2 border-blue-600">
@@ -462,7 +471,9 @@
                     customer: { name: '', address: '', phone: '' },
                     items: [],
                     paymentInfo: 'Bank Mandiri\nNo. Rek: 1380023610897\na.n Muhammad Wahid Hasyim',
-                    withTax: true
+                    withTax: true,
+                    taxName: 'PPh 21',
+                    taxRate: 2.5
                 },
 
                 initApp() {
@@ -492,7 +503,10 @@
                 // --- COMPUTED PROPERTIES FOR DASHBOARD ---
                 calculateGrandTotal(inv) {
                     const subtotal = this.calculateTotal(inv.items);
-                    if (inv.withTax) return subtotal + (subtotal * 0.025);
+                    if (inv.withTax) {
+                        const rate = (inv.taxRate !== undefined ? inv.taxRate : 2.5) / 100;
+                        return subtotal + (subtotal * rate);
+                    }
                     return subtotal;
                 },
                 get statsAll() {
@@ -523,13 +537,13 @@
                     return this.form.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
                 },
 
-                get pph21() {
-                    return this.formTotal * 0.025;
+                get taxAmount() {
+                    return this.formTotal * ((this.form.taxRate || 0) / 100);
                 },
 
                 get total() {
                     if (!this.form.withTax) return this.formTotal;
-                    return this.formTotal + this.pph21;
+                    return this.formTotal + this.taxAmount;
                 },
 
                 savePrefix() {
@@ -558,7 +572,9 @@
                         customer: { name: '', address: '', phone: '' },
                         items: [{ description: '', qty: 1, price: 0 }],
                         paymentInfo: 'Bank Mandiri\nNo. Rek: 1380023610897\na.n Muhammad Wahid Hasyim',
-                        withTax: true
+                        withTax: true,
+                        taxName: 'PPh 21',
+                        taxRate: 2.5
                     };
                     this.updateDueDate();
                     this.view = 'form';
@@ -569,6 +585,8 @@
                     document.title = `${this.form.number}`;
                     console.log(this.form);
                     if (this.form.withTax === undefined) this.form.withTax = true;
+                    if (this.form.taxName === undefined) this.form.taxName = 'PPh 21';
+                    if (this.form.taxRate === undefined) this.form.taxRate = 2.5;
                     this.view = 'form';
                 },
 
