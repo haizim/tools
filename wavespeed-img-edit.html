@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WaveSpeed Client</title>
-    <script src="assets/js/tailwindcss.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -20,8 +20,8 @@
             }
         }
     </script>
-    <link href="assets/css/material-icons.css" rel="stylesheet">
-    <script defer src="assets/js/alpine.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 
 <body x-data="imageEditorApp()"
@@ -98,7 +98,7 @@
                         <div x-show="imageUrl"
                             class="mt-4 relative rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 h-32 flex items-center justify-center overflow-hidden"
                             style="display: none;" x-transition>
-                            <img :src="imageUrl" alt="Input Preview" class="max-h-full max-w-full object-contain"
+                            <img :src="'https://thumbnailer.haizim.one/?u=' +imageUrl" alt="Input Preview" class="max-h-full max-w-full object-contain"
                                 @error="imageUrl = ''">
                             <button @click="imageUrl = ''"
                                 class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white p-1 rounded-full backdrop-blur transition"
@@ -185,6 +185,24 @@
                     <img x-show="outputImage && !isGenerating" :src="outputImage" alt="Generated Output"
                         class="max-w-full max-h-[700px] object-contain rounded-lg shadow-sm" style="display: none;">
 
+                    <button @click="prevHistory" x-show="outputImage && !isGenerating && history.length > 1"
+                        class="absolute left-4 top-1/2 -translate-y-1/2 bg-gray-900/70 hover:bg-gray-900 text-white p-2 rounded-full backdrop-blur transition flex items-center justify-center"
+                        title="Previous" style="display: none;">
+                        <span class="material-icons text-sm">chevron_left</span>
+                    </button>
+
+                    <button @click="nextHistory" x-show="outputImage && !isGenerating && history.length > 1"
+                        class="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-900/70 hover:bg-gray-900 text-white p-2 rounded-full backdrop-blur transition flex items-center justify-center"
+                        title="Next" style="display: none;">
+                        <span class="material-icons text-sm">chevron_right</span>
+                    </button>
+
+                    <div x-show="outputImage && !isGenerating && history.length > 1"
+                        class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/70 text-white text-xs px-2 py-1 rounded-full backdrop-blur"
+                        style="display: none;">
+                        <span x-text="getCurrentHistoryIndex() + 1"></span>/<span x-text="history.length"></span>
+                    </div>
+
                     <div x-show="outputImage && !isGenerating" class="absolute top-4 right-4 flex space-x-2"
                         style="display: none;">
 
@@ -211,7 +229,16 @@
                 <h2 class="font-bold text-lg flex items-center">
                     <span class="material-icons mr-2">history</span> History
                 </h2>
-                <div class="flex space-x-2">
+                <div class="flex items-center space-x-3">
+                    <button @click="exportData()"
+                        class="text-sm text-gray-500 hover:text-primary transition flex items-center">
+                        <span class="material-icons text-[16px] mr-1">download</span> Export
+                    </button>
+                    <label
+                        class="text-sm text-gray-500 hover:text-primary transition flex items-center cursor-pointer">
+                        <span class="material-icons text-[16px] mr-1">upload</span> Import
+                        <input type="file" accept=".json" class="hidden" @change="importData($event)">
+                    </label>
                     <button @click="showHistory = !showHistory"
                         class="text-sm text-gray-500 hover:text-primary transition"
                         x-text="showHistory ? 'Hide' : 'Show'"></button>
@@ -573,6 +600,78 @@
                     this.resultId = item.id || ''; // Load ID for downloads from history
                     // window.scrollTo({ top: 0, behavior: 'smooth' });
                     document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+                },
+
+                // Locate the currently displayed output within history (matches by id, falls back to output URL)
+                getCurrentHistoryIndex() {
+                    if (this.resultId) {
+                        const byId = this.history.findIndex(h => h.id && h.id === this.resultId);
+                        if (byId !== -1) return byId;
+                    }
+                    return this.history.findIndex(h => h.output === this.outputImage);
+                },
+
+                prevHistory() {
+                    if (this.history.length === 0) return;
+                    const idx = this.getCurrentHistoryIndex();
+                    const newIdx = (idx - 1 + this.history.length) % this.history.length;
+                    this.loadHistoryItem(this.history[newIdx]);
+                },
+
+                nextHistory() {
+                    if (this.history.length === 0) return;
+                    const idx = this.getCurrentHistoryIndex();
+                    const newIdx = (idx + 1) % this.history.length;
+                    this.loadHistoryItem(this.history[newIdx]);
+                },
+
+                // Export history + model settings as a JSON backup (API key excluded on purpose)
+                exportData() {
+                    const payload = {
+                        history: this.history,
+                        modelId: this.modelId,
+                        availableModels: this.availableModels,
+                        exportedAt: new Date().toISOString()
+                    };
+                    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `wavespeed-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                },
+
+                importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+
+                            if (Array.isArray(data.history)) {
+                                this.history = [...data.history, ...this.history];
+                            }
+                            if (Array.isArray(data.availableModels) && data.availableModels.length > 0) {
+                                this.availableModels = data.availableModels;
+                                localStorage.setItem('ws_models', JSON.stringify(this.availableModels));
+                            }
+                            if (data.modelId) {
+                                this.modelId = data.modelId;
+                                localStorage.setItem('ws_model_id', this.modelId);
+                            }
+
+                            alert('Import successful!');
+                        } catch (err) {
+                            alert('Invalid JSON file.');
+                        }
+                    };
+                    reader.readAsText(file);
+                    event.target.value = '';
                 }
             }
         }
