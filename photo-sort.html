@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="id" x-data="photoSorter()" :class="{ dark: darkMode }" class="h-full">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PhotoSort — Pilah Foto</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .photo-frame {
+            background: repeating-conic-gradient(#e5e7eb 0% 25%, transparent 0% 50%) 0 0 / 20px 20px;
+        }
+
+        .dark .photo-frame {
+            background: repeating-conic-gradient(#374151 0% 25%, transparent 0% 50%) 0 0 / 20px 20px;
+        }
+
+        .folder-card {
+            transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .folder-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .folder-card.active-flash {
+            animation: flash-green 0.35s ease-out;
+        }
+
+        @keyframes flash-green {
+            0% {
+                box-shadow: 0 0 0 3px #4ade80;
+                background-color: #f0fdf4;
+            }
+
+            100% {
+                box-shadow: 0 0 0 0px transparent;
+                background-color: transparent;
+            }
+        }
+
+        .dark .folder-card.active-flash {
+            animation: flash-green-dark 0.35s ease-out;
+        }
+
+        @keyframes flash-green-dark {
+            0% {
+                box-shadow: 0 0 0 3px #4ade80;
+                background-color: #14532d;
+            }
+
+            100% {
+                box-shadow: 0 0 0 0px transparent;
+                background-color: transparent;
+            }
+        }
+
+        .photo-slide-out-left {
+            animation: slide-out-left 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes slide-out-left {
+            from {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(-80px) scale(0.92);
+                opacity: 0;
+            }
+        }
+
+        .photo-slide-in {
+            animation: slide-in 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes slide-in {
+            from {
+                transform: translateX(60px) scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.75rem;
+            height: 1.75rem;
+            padding: 0 0.35rem;
+            border: 1.5px solid;
+            border-radius: 5px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 500;
+            line-height: 1;
+        }
+
+        .progress-bar {
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toast {
+            animation: toast-in 0.3s ease-out;
+        }
+
+        @keyframes toast-in {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 99px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+        }
+    </style>
+</head>
+
+<body class="h-full bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-300"
+    @keydown.window="handleKey($event)">
+
+    <!-- TOAST -->
+    <div x-cloak x-show="toast.show" class="fixed top-4 right-4 z-50 toast">
+        <div class="flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-body"
+            :class="toast.type === 'success' ? 'bg-emerald-500 text-white' : toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-zinc-800 text-white'">
+            <span class="material-icons-round text-base"
+                x-text="toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'"></span>
+            <span x-text="toast.msg"></span>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <header
+        class="sticky top-0 z-30 bg-zinc-100/80 dark:bg-zinc-950/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
+        <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="material-icons-round text-amber-500 text-2xl">photo_library</span>
+                <span class="font-display font-bold text-lg tracking-tight">PhotoSort</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Step indicator -->
+                <div class="hidden sm:flex items-center gap-1 text-xs font-mono">
+                    <template x-for="(s, i) in steps" :key="i">
+                        <div class="flex items-center gap-1">
+                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                                :class="step > i ? 'bg-emerald-500 text-white' : step === i ? 'bg-amber-500 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'">
+                                <span x-show="step > i" class="material-icons-round" style="font-size:14px">check</span>
+                                <span x-show="step <= i" x-text="i+1"></span>
+                            </div>
+                            <span x-show="i < steps.length - 1" class="text-zinc-300 dark:text-zinc-700">—</span>
+                        </div>
+                    </template>
+                </div>
+
+                <button @click="darkMode = !darkMode"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors">
+                    <span class="material-icons-round text-sm" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- ===================== STEP 0: Pilih Folder Foto ===================== -->
+        <div x-show="step === 0" x-cloak>
+            <div class="max-w-lg mx-auto mt-12 text-center">
+                <div
+                    class="w-20 h-20 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-6">
+                    <span class="material-icons-round text-amber-500 text-4xl">folder_open</span>
+                </div>
+                <h1 class="font-display font-bold text-3xl mb-2">Pilih Folder Foto</h1>
+                <p class="text-zinc-500 dark:text-zinc-400 mb-8 text-sm leading-relaxed">
+                    Pilih folder yang berisi foto-foto yang ingin kamu sortir. Aplikasi mendukung JPG, PNG, WebP, GIF,
+                    dan AVIF.
+                </p>
+
+                <button @click="pickSourceFolder()"
+                    class="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-display font-bold text-lg transition-all shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2">
+                    <span class="material-icons-round">drive_folder_upload</span>
+                    Pilih Folder
+                </button>
+
+                <p class="mt-4 text-xs text-zinc-400 dark:text-zinc-600">
+                    Menggunakan File System Access API — Chrome / Edge diperlukan
+                </p>
+            </div>
+        </div>
+
+        <!-- ===================== STEP 1: Setup Folder Tujuan ===================== -->
+        <div x-show="step === 1" x-cloak>
+            <div class="max-w-2xl mx-auto">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="font-display font-bold text-2xl">Folder Tujuan</h2>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                            Buat folder tujuan dan assign shortcut keyboard ke masing-masing.
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-zinc-400 dark:text-zinc-500">Foto ditemukan</div>
+                        <div class="font-display font-bold text-2xl text-amber-500" x-text="photos.length"></div>
+                    </div>
+                </div>
+
+                <!-- Sort Order -->
+                <div class="mb-4 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-icons-round text-zinc-400 text-base">sort</span>
+                        <span class="text-sm font-medium">Urutan Tampilan Foto</span>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <template x-for="opt in sortOptions" :key="opt.value">
+                            <button @click="sortOrder = opt.value; applySortOrder()"
+                                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                                :class="sortOrder === opt.value
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'">
+                                <span x-text="opt.label"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Add folder form -->
+                <div class="mb-4 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <div class="flex gap-3 items-end">
+                        <div class="flex-1">
+                            <label class="text-xs text-zinc-400 dark:text-zinc-500 mb-1 block">Nama Folder</label>
+                            <input x-model="newFolder.name" @keydown.enter="addFolder()" placeholder="contoh: Favorit"
+                                class="w-full px-3 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition" />
+                        </div>
+                        <div class="w-24">
+                            <label class="text-xs text-zinc-400 dark:text-zinc-500 mb-1 block">Shortcut</label>
+                            <input x-model="newFolder.shortcut" @keydown="captureKey($event)" placeholder="tekan tombol"
+                                maxlength="1"
+                                class="w-full px-3 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition font-mono text-center uppercase" />
+                        </div>
+                        <button @click="addFolder()"
+                            class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium flex items-center gap-1 transition-colors shrink-0">
+                            <span class="material-icons-round text-base">add</span>
+                            Tambah
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Folder list -->
+                <div class="space-y-2 mb-6">
+                    <template x-for="(folder, idx) in targetFolders" :key="folder.id">
+                        <div
+                            class="folder-card flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                :style="`background-color: ${folder.color}22`">
+                                <span class="material-icons-round text-lg"
+                                    :style="`color: ${folder.color}`">folder</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium truncate" x-text="folder.name"></div>
+                                <div class="text-xs text-zinc-400 dark:text-zinc-500"
+                                    x-text="folder.count + ' foto dipilah'"></div>
+                            </div>
+                            <div class="kbd border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 uppercase"
+                                x-text="folder.shortcut"></div>
+                            <button @click="removeFolder(idx)"
+                                class="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                <span class="material-icons-round text-base">close</span>
+                            </button>
+                        </div>
+                    </template>
+
+                    <div x-show="targetFolders.length === 0"
+                        class="text-center py-8 text-sm text-zinc-400 dark:text-zinc-600">
+                        Belum ada folder tujuan. Tambahkan minimal satu folder.
+                    </div>
+                </div>
+
+                <button @click="startSorting()" :disabled="targetFolders.length === 0"
+                    class="w-full py-3.5 rounded-2xl font-display font-bold text-base transition-all flex items-center justify-center gap-2"
+                    :class="targetFolders.length > 0
+                  ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/20'
+                  : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'">
+                    <span class="material-icons-round">photo_filter</span>
+                    Mulai Sortir
+                </button>
+            </div>
+        </div>
+
+        <!-- ===================== STEP 2: Sorting ===================== -->
+        <div x-show="step === 2" x-cloak>
+
+            <!-- Progress bar -->
+            <div class="mb-4 flex items-center gap-3">
+                <button @click="step = 1; animating = false"
+                    class="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                    <span class="material-icons-round text-sm">arrow_back</span>
+                    Setup
+                </button>
+                <div class="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                    <div class="h-full rounded-full bg-amber-500 progress-bar" :style="`width: ${progressPct}%`"></div>
+                </div>
+                <div class="text-xs font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
+                    <span x-text="currentIndex + 1"></span>/<span x-text="photos.length"></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+
+                <!-- Main photo area -->
+                <div>
+                    <!-- Photo viewer -->
+                    <div class="photo-frame rounded-2xl overflow-hidden relative" style="min-height: 420px;">
+                        <div :class="animating ? 'photo-slide-out-left' : 'photo-slide-in'"
+                            class="w-full h-full flex items-center justify-center p-4" style="min-height: 420px;">
+                            <img :src="currentPhotoUrl"
+                                class="max-w-full max-h-[420px] object-contain rounded-lg shadow-2xl select-none"
+                                :alt="currentPhoto ? currentPhoto.name : ''" draggable="false" />
+                        </div>
+
+                        <!-- Skip & Undo overlay -->
+                        <div class="absolute top-3 right-3 flex gap-2">
+                            <button @click="undoLast()" :disabled="history.length === 0"
+                                class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/40 text-white backdrop-blur hover:bg-black/60 transition-colors disabled:opacity-40">
+                                <span class="material-icons-round text-sm">undo</span>
+                                Undo
+                            </button>
+                            <button @click="skipPhoto()"
+                                class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/40 text-white backdrop-blur hover:bg-black/60 transition-colors">
+                                <span class="material-icons-round text-sm">skip_next</span>
+                                Lewati
+                            </button>
+                        </div>
+
+                        <!-- Navigation arrows -->
+                        <button @click="goToPhoto(currentIndex - 1)" :disabled="currentIndex === 0"
+                            class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white backdrop-blur flex items-center justify-center hover:bg-black/60 transition-colors disabled:opacity-30">
+                            <span class="material-icons-round text-base">chevron_left</span>
+                        </button>
+                        <button @click="goToPhoto(currentIndex + 1)" :disabled="currentIndex >= photos.length - 1"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white backdrop-blur flex items-center justify-center hover:bg-black/60 transition-colors disabled:opacity-30">
+                            <span class="material-icons-round text-base">chevron_right</span>
+                        </button>
+                    </div>
+
+                    <!-- Photo info -->
+                    <div class="mt-3 flex items-center justify-between px-1">
+                        <div class="min-w-0">
+                            <div class="text-sm font-medium truncate" x-text="currentPhoto ? currentPhoto.name : ''">
+                            </div>
+                            <div class="text-xs text-zinc-400 dark:text-zinc-500"
+                                x-text="currentPhoto ? formatSize(currentPhoto.size) : ''"></div>
+                        </div>
+                        <div class="text-xs px-2 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-800 font-mono text-zinc-500 dark:text-zinc-400 shrink-0 ml-2"
+                            x-text="currentPhoto && currentPhoto.assigned ? '→ ' + currentPhoto.assigned : 'belum dipilah'">
+                        </div>
+                    </div>
+
+                    <!-- Thumbnail strip -->
+                    <div class="mt-3 flex gap-2 overflow-x-auto pb-1" style="scrollbar-width: thin;">
+                        <template x-for="(p, i) in photos" :key="p.name">
+                            <button @click="goToPhoto(i)"
+                                class="shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all" :class="i === currentIndex
+                        ? 'border-amber-500 scale-105'
+                        : p.assigned
+                          ? 'border-emerald-400 opacity-60'
+                          : 'border-transparent opacity-70 hover:opacity-100'">
+                                <img :src="p.url" class="w-full h-full object-cover" :alt="p.name" draggable="false" />
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Sidebar: Folder shortcuts -->
+                <div class="space-y-2">
+                    <div class="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">
+                        Pilah ke folder</div>
+
+                    <template x-for="folder in targetFolders" :key="folder.id">
+                        <button @click="assignToFolder(folder)" :id="'folder-btn-' + folder.id"
+                            class="folder-card w-full flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-amber-400 dark:hover:border-amber-600 text-left transition-all">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                :style="`background-color: ${folder.color}22`">
+                                <span class="material-icons-round text-lg"
+                                    :style="`color: ${folder.color}`">folder</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium truncate" x-text="folder.name"></div>
+                                <div class="text-xs text-zinc-400 dark:text-zinc-500" x-text="folder.count + ' foto'">
+                                </div>
+                            </div>
+                            <div class="kbd border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 uppercase"
+                                x-text="folder.shortcut"></div>
+                        </button>
+                    </template>
+
+                    <!-- Legend -->
+                    <div
+                        class="mt-4 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                        <div
+                            class="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                            Shortcut</div>
+                        <template x-for="folder in targetFolders" :key="folder.id + '-leg'">
+                            <div class="flex items-center gap-2 text-xs">
+                                <div class="kbd border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 uppercase"
+                                    x-text="folder.shortcut"></div>
+                                <span class="text-zinc-600 dark:text-zinc-400 truncate" x-text="folder.name"></span>
+                            </div>
+                        </template>
+                        <div class="border-t border-zinc-200 dark:border-zinc-800 pt-2 mt-2 space-y-1.5">
+                            <div class="flex items-center gap-2 text-xs">
+                                <div class="kbd border-zinc-300 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400">←
+                                </div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Foto sebelumnya</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs">
+                                <div class="kbd border-zinc-300 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400">→
+                                </div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Foto selanjutnya</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs">
+                                <div class="kbd border-zinc-300 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400">Z
+                                </div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Undo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div
+                        class="mt-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800">
+                        <div
+                            class="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                            Statistik</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="text-center p-2 rounded-lg bg-white dark:bg-zinc-900">
+                                <div class="font-display font-bold text-lg text-emerald-500" x-text="assignedCount">
+                                </div>
+                                <div class="text-xs text-zinc-400">Sudah pilah</div>
+                            </div>
+                            <div class="text-center p-2 rounded-lg bg-white dark:bg-zinc-900">
+                                <div class="font-display font-bold text-lg text-amber-500"
+                                    x-text="photos.length - assignedCount"></div>
+                                <div class="text-xs text-zinc-400">Belum pilah</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export button -->
+                    <button @click="exportResults()"
+                        class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-medium text-sm flex items-center justify-center gap-2 transition-colors shadow-md shadow-emerald-500/20 mt-2">
+                        <span class="material-icons-round text-base">file_download</span>
+                        Simpan ke Folder
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== STEP 3: Done ===================== -->
+        <div x-show="step === 3" x-cloak>
+            <div class="max-w-lg mx-auto mt-12 text-center">
+                <div
+                    class="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-6">
+                    <span class="material-icons-round text-emerald-500 text-4xl">check_circle</span>
+                </div>
+                <h2 class="font-display font-bold text-3xl mb-2">Selesai!</h2>
+                <p class="text-zinc-500 dark:text-zinc-400 mb-8 text-sm">
+                    <span x-text="assignedCount"></span> foto telah dipilah dan disalin ke folder tujuan.
+                </p>
+
+                <!-- Summary per folder -->
+                <div class="space-y-2 mb-8 text-left">
+                    <template x-for="folder in targetFolders" :key="folder.id">
+                        <div
+                            class="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center"
+                                :style="`background-color: ${folder.color}22`">
+                                <span class="material-icons-round text-lg"
+                                    :style="`color: ${folder.color}`">folder</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm font-medium" x-text="folder.name"></div>
+                            </div>
+                            <div class="font-display font-bold text-lg text-zinc-700 dark:text-zinc-300"
+                                x-text="folder.count + ' foto'"></div>
+                        </div>
+                    </template>
+                </div>
+
+                <button @click="resetAll()"
+                    class="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white font-display font-bold text-base transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+                    <span class="material-icons-round">refresh</span>
+                    Sortir Folder Lain
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function photoSorter() {
+            return {
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+                step: 0,
+                steps: ['Pilih Folder', 'Setup Tujuan', 'Sortir', 'Selesai'],
+
+                // Source
+                sourceHandle: null,
+                photos: [],
+                currentIndex: 0,
+                currentPhotoUrl: null,
+                animating: false,
+                history: [],
+
+                // Folders
+                targetFolders: [],
+                newFolder: { name: '', shortcut: '' },
+                folderColors: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'],
+
+                // Sort
+                sortOrder: 'name-asc',
+                sortOptions: [
+                    { value: 'name-asc', label: '↑ Nama A-Z' },
+                    { value: 'name-desc', label: '↓ Nama Z-A' },
+                    { value: 'size-asc', label: '↑ Ukuran Kecil' },
+                    { value: 'size-desc', label: '↓ Ukuran Besar' },
+                ],
+
+                // Toast
+                toast: { show: false, msg: '', type: 'info' },
+                _toastTimer: null,
+
+                get currentPhoto() {
+                    return this.photos[this.currentIndex] || null;
+                },
+                get progressPct() {
+                    if (!this.photos.length) return 0;
+                    return ((this.currentIndex + 1) / this.photos.length) * 100;
+                },
+                get assignedCount() {
+                    return this.photos.filter(p => p.assigned).length;
+                },
+
+                showToast(msg, type = 'info') {
+                    this.toast = { show: true, msg, type };
+                    clearTimeout(this._toastTimer);
+                    this._toastTimer = setTimeout(() => { this.toast.show = false; }, 2800);
+                },
+
+                // ---- Step 0: Pick folder ----
+                async pickSourceFolder() {
+                    if (!window.showDirectoryPicker) {
+                        this.showToast('Browser tidak mendukung File System Access API. Gunakan Chrome/Edge terbaru.', 'error');
+                        return;
+                    }
+                    try {
+                        this.sourceHandle = await window.showDirectoryPicker({ mode: 'read' });
+                        await this.loadPhotos();
+                    } catch (e) {
+                        if (e.name !== 'AbortError') this.showToast('Gagal membuka folder.', 'error');
+                    }
+                },
+
+                async loadPhotos() {
+                    const exts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp'];
+                    const files = [];
+                    for await (const entry of this.sourceHandle.values()) {
+                        if (entry.kind !== 'file') continue;
+                        const ext = entry.name.split('.').pop().toLowerCase();
+                        if (!exts.includes(ext)) continue;
+                        const file = await entry.getFile();
+                        files.push({
+                            name: entry.name,
+                            handle: entry,
+                            size: file.size,
+                            file,
+                            url: URL.createObjectURL(file),
+                            assigned: null,
+                        });
+                    }
+                    if (files.length === 0) {
+                        this.showToast('Tidak ada foto ditemukan di folder ini.', 'error');
+                        return;
+                    }
+                    this.photos = files;
+                    this.applySortOrder();
+                    this.step = 1;
+                    this.showToast(`${files.length} foto ditemukan!`, 'success');
+                },
+
+                // ---- Sort ----
+                applySortOrder() {
+                    const [key, dir] = this.sortOrder.split('-');
+                    this.photos.sort((a, b) => {
+                        let va = key === 'name' ? a.name.toLowerCase() : a.size;
+                        let vb = key === 'name' ? b.name.toLowerCase() : b.size;
+                        return dir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+                    });
+                },
+
+                // ---- Step 1: Folders ----
+                captureKey(e) {
+                    const ignored = ['Enter', 'Tab', 'Backspace', 'Escape', 'Shift', 'Control', 'Alt', 'Meta'];
+                    if (ignored.includes(e.key)) return;
+                    e.preventDefault();
+                    this.newFolder.shortcut = e.key.toLowerCase();
+                },
+
+                addFolder() {
+                    const name = this.newFolder.name.trim();
+                    const shortcut = this.newFolder.shortcut.trim().toLowerCase();
+                    if (!name) { this.showToast('Nama folder tidak boleh kosong.', 'error'); return; }
+                    if (!shortcut) { this.showToast('Assign shortcut dulu.', 'error'); return; }
+                    if (this.targetFolders.some(f => f.shortcut === shortcut)) {
+                        this.showToast(`Shortcut "${shortcut.toUpperCase()}" sudah dipakai.`, 'error'); return;
+                    }
+                    const color = this.folderColors[this.targetFolders.length % this.folderColors.length];
+                    this.targetFolders.push({ id: Date.now(), name, shortcut, color, count: 0, dirHandle: null });
+                    this.newFolder = { name: '', shortcut: '' };
+                    this.showToast(`Folder "${name}" ditambahkan!`, 'success');
+                },
+
+                removeFolder(idx) {
+                    this.targetFolders.splice(idx, 1);
+                },
+
+                startSorting() {
+                    if (this.targetFolders.length === 0) return;
+                    this.currentIndex = 0;
+                    this.history = [];
+                    this.currentPhotoUrl = this.photos[0]?.url || null;
+                    this.step = 2;
+                },
+
+                // ---- Step 2: Sorting ----
+                assignToFolder(folder) {
+                    if (!this.currentPhoto) return;
+
+                    // Flash folder card
+                    const btn = document.getElementById('folder-btn-' + folder.id);
+                    if (btn) {
+                        btn.classList.add('active-flash');
+                        setTimeout(() => btn.classList.remove('active-flash'), 400);
+                    }
+
+                    const prev = this.currentPhoto.assigned;
+                    if (prev) {
+                        const prevFolder = this.targetFolders.find(f => f.name === prev);
+                        if (prevFolder) prevFolder.count--;
+                    }
+
+                    this.currentPhoto.assigned = folder.name;
+                    folder.count++;
+
+                    // Save to history
+                    this.history.push({ index: this.currentIndex, folder: prev });
+
+                    this.advancePhoto();
+                },
+
+                advancePhoto() {
+                    this.animating = true;
+                    setTimeout(() => {
+                        const next = this.currentIndex + 1;
+                        if (next < this.photos.length) {
+                            this.currentIndex = next;
+                            this.currentPhotoUrl = this.photos[next].url;
+                        }
+                        this.animating = false;
+                    }, 280);
+                },
+
+                skipPhoto() {
+                    if (this.currentIndex < this.photos.length - 1) {
+                        this.advancePhoto();
+                    } else {
+                        this.showToast('Ini adalah foto terakhir.', 'info');
+                    }
+                },
+
+                goToPhoto(idx) {
+                    if (idx < 0 || idx >= this.photos.length) return;
+                    this.currentIndex = idx;
+                    this.currentPhotoUrl = this.photos[idx].url;
+                },
+
+                undoLast() {
+                    if (this.history.length === 0) { this.showToast('Tidak ada aksi untuk diundo.', 'info'); return; }
+                    const last = this.history.pop();
+                    const photo = this.photos[last.index];
+
+                    // Decrease current folder count
+                    if (photo.assigned) {
+                        const cur = this.targetFolders.find(f => f.name === photo.assigned);
+                        if (cur) cur.count--;
+                    }
+
+                    // Restore
+                    photo.assigned = last.folder;
+                    if (last.folder) {
+                        const prev = this.targetFolders.find(f => f.name === last.folder);
+                        if (prev) prev.count++;
+                    }
+
+                    this.goToPhoto(last.index);
+                    this.showToast('Undo berhasil.', 'info');
+                },
+
+                handleKey(e) {
+                    if (this.step !== 2) return;
+                    // Ignore if typing in an input
+                    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+                    const key = e.key.toLowerCase();
+
+                    if (key === 'arrowleft') { this.goToPhoto(this.currentIndex - 1); return; }
+                    if (key === 'arrowright') { this.goToPhoto(this.currentIndex + 1); return; }
+                    if (key === 'z') { this.undoLast(); return; }
+
+                    const folder = this.targetFolders.find(f => f.shortcut === key);
+                    if (folder) this.assignToFolder(folder);
+                },
+
+                // ---- Export ----
+                async exportResults() {
+                    const assigned = this.photos.filter(p => p.assigned);
+                    if (assigned.length === 0) {
+                        this.showToast('Belum ada foto yang dipilah.', 'error');
+                        return;
+                    }
+                    if (!window.showDirectoryPicker) {
+                        this.showToast('File System Access API tidak tersedia.', 'error');
+                        return;
+                    }
+
+                    this.showToast('Pilih folder tujuan ekspor...', 'info');
+
+                    let rootHandle;
+                    try {
+                        rootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    } catch (e) {
+                        if (e.name !== 'AbortError') this.showToast('Dibatalkan.', 'info');
+                        return;
+                    }
+
+                    let copied = 0;
+                    try {
+                        for (const photo of assigned) {
+                            const folder = this.targetFolders.find(f => f.name === photo.assigned);
+                            if (!folder) continue;
+
+                            // Create/get sub-directory
+                            const dirHandle = await rootHandle.getDirectoryHandle(folder.name, { create: true });
+
+                            // Write file
+                            const fileHandle = await dirHandle.getFileHandle(photo.name, { create: true });
+                            const writable = await fileHandle.createWritable();
+                            const fileData = await photo.file.arrayBuffer();
+                            await writable.write(fileData);
+                            await writable.close();
+                            copied++;
+                        }
+                        this.showToast(`${copied} foto berhasil disalin!`, 'success');
+                        setTimeout(() => { this.step = 3; }, 800);
+                    } catch (e) {
+                        this.showToast('Gagal menyimpan: ' + e.message, 'error');
+                    }
+                },
+
+                formatSize(bytes) {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+                },
+
+                resetAll() {
+                    // Revoke object URLs
+                    this.photos.forEach(p => URL.revokeObjectURL(p.url));
+                    this.photos = [];
+                    this.targetFolders = [];
+                    this.currentIndex = 0;
+                    this.currentPhotoUrl = null;
+                    this.history = [];
+                    this.sourceHandle = null;
+                    this.step = 0;
+                },
+            };
+        }
+    </script>
+</body>
+
+</html>
