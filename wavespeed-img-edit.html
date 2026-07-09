@@ -239,6 +239,11 @@
                         <span class="material-icons text-[16px] mr-1">upload</span> Import
                         <input type="file" accept=".json" class="hidden" @change="importData($event)">
                     </label>
+                    <label
+                        class="text-sm text-gray-500 hover:text-primary transition flex items-center cursor-pointer">
+                        <span class="material-icons text-[16px] mr-1">merge_type</span> Import Merge
+                        <input type="file" accept=".json" class="hidden" @change="importMergeData($event)">
+                    </label>
                     <button @click="showHistory = !showHistory"
                         class="text-sm text-gray-500 hover:text-primary transition"
                         x-text="showHistory ? 'Hide' : 'Show'"></button>
@@ -318,9 +323,14 @@
             </div>
 
             <div class="mt-6 flex items-center justify-between">
-                <button @click="checkBalance" class="text-sm text-primary hover:underline flex items-center">
-                    <span class="material-icons mr-1 text-[16px]">refresh</span> Check Balance
-                </button>
+                <div class="flex items-center space-x-3">
+                    <button @click="checkBalance" class="text-sm text-primary hover:underline flex items-center">
+                        <span class="material-icons mr-1 text-[16px]">refresh</span> Check Balance
+                    </button>
+                    <span x-show="balance !== null" class="text-sm font-medium text-green-600 dark:text-green-400">
+                        $<span x-text="balance"></span>
+                    </span>
+                </div>
                 <button @click="saveConfig"
                     class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-2 rounded-lg font-medium hover:opacity-90 transition">
                     Save Config
@@ -666,6 +676,48 @@
                             }
 
                             alert('Import successful!');
+                        } catch (err) {
+                            alert('Invalid JSON file.');
+                        }
+                    };
+                    reader.readAsText(file);
+                    event.target.value = '';
+                },
+
+                // Merge import: only adds history items that don't already exist (matched by id, falls back to output URL)
+                importMergeData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+
+                            let added = 0;
+                            if (Array.isArray(data.history)) {
+                                const existingIds = new Set(this.history.filter(h => h.id).map(h => h.id));
+                                const existingOutputs = new Set(this.history.map(h => h.output));
+                                const newItems = data.history.filter(item => {
+                                    if (item.id && existingIds.has(item.id)) return false;
+                                    if (item.output && existingOutputs.has(item.output)) return false;
+                                    return true;
+                                });
+                                added = newItems.length;
+                                this.history = [...newItems, ...this.history];
+                            }
+
+                            // Merge models without overwriting existing ones
+                            if (Array.isArray(data.availableModels) && data.availableModels.length > 0) {
+                                const existingModelIds = new Set(this.availableModels.map(m => m.id));
+                                const newModels = data.availableModels.filter(m => !existingModelIds.has(m.id));
+                                if (newModels.length > 0) {
+                                    this.availableModels = [...this.availableModels, ...newModels];
+                                    localStorage.setItem('ws_models', JSON.stringify(this.availableModels));
+                                }
+                            }
+
+                            alert(`Merge successful! ${added} new item(s) added.`);
                         } catch (err) {
                             alert('Invalid JSON file.');
                         }
